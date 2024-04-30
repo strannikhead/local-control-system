@@ -3,7 +3,7 @@ import os
 import shutil
 
 
-def write_to_file(file_path, *data):
+def _write_to_file(file_path, *data):
     """Add files to the staging area"""
     if not os.path.exists(file_path):
         raise ValueError(f"There is no file '{file_path}'")
@@ -23,12 +23,24 @@ def clear_file(file_path, write_data=''):
         file.write(write_data + '\n')
 
 
-def copy_files(copy_from, copy_to, files_to_copy=None):
+def _copy_files(copy_from, copy_to, **files_to_copy):
     """Moves files from the 'copy_from' directory to the 'copy_to' directory
     based on the file paths from the 'files_to_copy' list. If the 'files_to_copy'
     parameter is not specified, the default method moves all files from the 'copy_from'
-    directory. Returns true if the file move was successful, else false"""
-    pass
+    directory"""
+
+    if not os.path.exists(copy_from) or not os.path.exists(copy_to):
+        raise ValueError(f"This path{' '+copy_from if os.path.exists(copy_from) else ''} "
+                         f"{' ' + copy_to if os.path.exists(copy_to) else ''} not exist")
+
+    if not files_to_copy:
+        shutil.copy2(copy_from, copy_to)
+    else:
+        for item in files_to_copy:
+            if os.path.isdir(copy_from+f'/{item}'):
+                shutil.copy2(copy_from+f'/{item}', copy_to+f'/{item}')
+            else:
+                shutil.copy2(copy_from+f'/{item}', copy_to)
 
 
 def commit_changes(staging_area, commit_dir, message):
@@ -38,4 +50,3 @@ def commit_changes(staging_area, commit_dir, message):
 
     # Copy files from staging area to commit directory
     shutil.copytree(staging_area, commit_path)
-
