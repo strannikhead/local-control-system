@@ -130,8 +130,8 @@ def branch(branch_name):
     click.echo(f"Creating new branch: {branch_name}...")
 
 
-# @cli.command()
-# @click.argument('branch_name')
+@cli.command()
+@click.argument('branch_name')
 def checkout(branch_name):
     """Switch to a different branch"""
     branch_path = os.path.join(BRANCHES_DIR, branch_name)
@@ -187,5 +187,4 @@ def _parse_ics_ignore():
 
 
 if __name__ == "__main__":
-    # cli()
-    checkout("main")
+    cli()
