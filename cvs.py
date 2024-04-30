@@ -16,8 +16,8 @@ def cli():
 @cli.command()
 def init():
     """Initialize a new VCS repository"""
-    ignoreics = open('icsignore.txt', 'x')
-
+    icsignore = open('icsignore.txt', 'x')
+    icsignore.close()
 
     if os.path.exists(MAIN_BRANCH):
         click.echo("Repository has been already initialized")
@@ -32,12 +32,15 @@ def init():
 @click.argument('files', nargs=-1)
 def add(files):
     """Add files to the staging area"""
-    # TODO: сверяться с gitignore
+    ignores = _parse_ics_ignore()
     if not check_repository_existence() or not check_staging_area_existence():
         return
     for file in files:
         if not os.path.exists(file):
             raise ValueError(f"There is no file {file}")
+        if file in ignores:
+            print('Some files are in icsignore')
+            return
 
     _write_to_file(STAGING_AREA, *files)
     click.echo(f"Adding {len(files)} file(s) to staging area: {', '.join(files)}")
@@ -136,6 +139,13 @@ def get_staged_file_paths():
         return branch_name[1]
     return None
 
+
+def _parse_ics_ignore():
+    ignores = list()
+    with open('icsignore.txt', 'r') as file:
+        for line in file:
+            ignores.append(line.strip())
+    return ignores
 
 
 if __name__ == "__main__":
