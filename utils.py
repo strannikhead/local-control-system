@@ -27,7 +27,7 @@ def copy_files(copy_from, copy_to, files_to_copy=None):
     """Moves files from the 'copy_from' directory to the 'copy_to' directory
     based on the file paths from the 'files_to_copy' list. If the 'files_to_copy'
     parameter is not specified, the default method moves all files from the 'copy_from'
-    directory"""
+    directory. Returns true if the file move was successful, else false"""
     pass
 
 
