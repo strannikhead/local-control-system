@@ -79,14 +79,22 @@ def commit(message):
     if not branch_path:
         click.echo("Switch to the branch you need to commit")
         return
-    staged_files = _get_staged_file_paths()
+    staged_files = set(_get_staged_file_paths())
     if not staged_files:
         click.echo("There is nothing to commit")
         return
 
+    last_commit = os.listdir(branch_path)[-1]
+    last_commit_path = os.path.join(branch_path, last_commit)
+    last_commit_files = set(os.listdir(last_commit_path))
+    last_commit_files.remove("commit_info.txt")
+    unstaged_files = last_commit_files.difference(staged_files)
+
     commit_path = os.path.join(branch_path, str(time.time() * 1000)[:13])
     commit_info_path = os.path.join(commit_path, "commit_info.txt")
     _copy_files("", commit_path, *staged_files)
+    if unstaged_files:
+        _copy_files(last_commit_path, commit_path, *unstaged_files)
     with open(commit_info_path, "w+", encoding="UTF-8") as f:
         f.write(message)
     _clear_file(STAGING_AREA, "branch " + branch_path)
@@ -114,14 +122,16 @@ def log():
 def branch(branch_name):
     """Create a new branch"""
     branch_path = os.path.join(BRANCHES_DIR, branch_name)
-    os.makedirs(branch_path, exist_ok=True)
+    if os.path.exists(branch_path):
+        click.echo(f"You can't create branch with name '{branch_name}', because it already exists")
+        return
     _copy_files(_get_branch_path(), branch_path)
     _clear_file(STAGING_AREA, "branch " + branch_path)
     click.echo(f"Creating new branch: {branch_name}...")
 
 
-@cli.command()
-@click.argument('branch_name')
+# @cli.command()
+# @click.argument('branch_name')
 def checkout(branch_name):
     """Switch to a different branch"""
     branch_path = os.path.join(BRANCHES_DIR, branch_name)
@@ -177,4 +187,5 @@ def _parse_ics_ignore():
 
 
 if __name__ == "__main__":
-    cli()
+    # cli()
+    checkout("main")

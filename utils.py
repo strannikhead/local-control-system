@@ -33,6 +33,8 @@ def _copy_files(copy_from, copy_to, *files_to_copy):
     if not files_to_copy:
         shutil.copytree(copy_from, copy_to)
     else:
+        if not os.path.exists(copy_to):
+            os.makedirs(copy_to, exist_ok=True)
         for item in files_to_copy:
             shutil.copy2(item, copy_to)
 
@@ -41,4 +43,9 @@ def _delete_files(directory):
     files = os.listdir(directory)
     for file in files:
         if all(not file.startswith(i) for i in {".", "__"}):
-            os.remove(os.path.join(directory, file))
+            path = os.path.join(directory, file)
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+
