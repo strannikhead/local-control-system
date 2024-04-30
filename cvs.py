@@ -36,11 +36,12 @@ def add(files):
     if not check_repository_existence() or not check_staging_area_existence():
         return
     for file in files:
-        if not os.path.exists(file):
-            raise ValueError(f"There is no file {file}")
         if file in ignores:
             print('Some files are in icsignore')
             return
+        # TODO: fix that (raise exception always)
+        # if not os.path.exists(file):
+        #     raise ValueError(f"There is no file {file}")
 
     _write_to_file(STAGING_AREA, *files)
     click.echo(f"Adding {len(files)} file(s) to staging area: {', '.join(files)}")
@@ -92,7 +93,7 @@ def log():
 def branch(branch_name):
     """Create a new branch"""
     # Create a directory for the branch
-    branch_dir = os.path.join(".vcs/branches", branch_name)
+    branch_dir = os.path.join(BRANCHES_DIR, branch_name)
     os.makedirs(branch_dir, exist_ok=True)
     click.echo(f"Creating new branch: {branch_name}")
 
@@ -101,7 +102,7 @@ def branch(branch_name):
 @click.argument('branch_name')
 def checkout(branch_name):
     """Switch to a different branch"""
-    branch_dir = os.path.join(".vcs/branches", branch_name)
+    branch_dir = os.path.join(BRANCHES_DIR, branch_name)
     if not os.path.exists(branch_dir):
         click.echo(f"Branch '{branch_name}' does not exist.")
         return
@@ -124,6 +125,7 @@ def check_staging_area_existence():
     return True
 
 
+# TODO: invalid method
 def get_branch_path():
     with open(STAGING_AREA, "r") as file:
         branch_name = file.readline().split()
