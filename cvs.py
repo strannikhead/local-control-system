@@ -84,17 +84,21 @@ def commit(message):
         click.echo("There is nothing to commit")
         return
 
-    last_commit = os.listdir(branch_path)[-1]
-    last_commit_path = os.path.join(branch_path, last_commit)
-    last_commit_files = set(os.listdir(last_commit_path))
-    last_commit_files.remove("commit_info.txt")
-    unstaged_files = last_commit_files.difference(staged_files)
 
+    commits = os.listdir(branch_path)
     commit_path = os.path.join(branch_path, str(time.time() * 1000)[:13])
     commit_info_path = os.path.join(commit_path, "commit_info.txt")
     _copy_files("", commit_path, *staged_files)
-    if unstaged_files:
-        _copy_files(last_commit_path, commit_path, *unstaged_files)
+
+    if commits:
+        last_commit = commits[-1]
+        last_commit_path = os.path.join(branch_path, last_commit)
+        last_commit_files = set(os.listdir(last_commit_path))
+        last_commit_files.remove("commit_info.txt")
+        unstaged_files = last_commit_files.difference(staged_files)
+        if unstaged_files:
+            _copy_files(last_commit_path, commit_path, *unstaged_files)
+
     with open(commit_info_path, "w+", encoding="UTF-8") as f:
         f.write(message)
     _clear_file(STAGING_AREA, "branch " + branch_path)
@@ -125,6 +129,12 @@ def branch(branch_name):
     if os.path.exists(branch_path):
         click.echo(f"You can't create branch with name '{branch_name}', because it already exists")
         return
+    branch_path = _get_branch_path()
+
+    if (len(os.listdir(branch_path)) == 0):
+        click.echo(f"`There are no commits on branch '{branch_path}'")
+        return
+
     _copy_files(_get_branch_path(), branch_path)
     _clear_file(STAGING_AREA, "branch " + branch_path)
     click.echo(f"Creating new branch: {branch_name}...")

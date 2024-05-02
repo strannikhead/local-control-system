@@ -32,7 +32,6 @@ def _copy_files(copy_from, copy_to, *files_to_copy):
         raise ValueError(f"This path '{copy_from}' does not exist")
     if not files_to_copy:
         files_to_copy = set(os.listdir(copy_from))
-        files_to_copy.remove("commit_info.txt")
         for file in files_to_copy:
             file_path = os.path.join(copy_from, file)
             if os.path.isdir(file_path):
