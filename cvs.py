@@ -9,7 +9,7 @@ BRANCHES_DIR = ".cvs/branches"
 MAIN_BRANCH = ".cvs/branches/main"
 CURRENT_DIR = os.getcwd()
 GITIGNORE = ".cvs/icsignore.txt"
-gitignore_files = [".cvs", ".venv", ".gitignore", ".idea", ".idea"]
+gitignore_files = [".", "_", "cvs.py", "cvs_tests.py", "utils.py"]
 
 @click.group()
 def cli():
