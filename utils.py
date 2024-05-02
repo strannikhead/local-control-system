@@ -40,10 +40,10 @@ def _copy_files(copy_from, copy_to, *files_to_copy):
             shutil.copy2(item, copy_to)
 
 
-def _delete_files(directory):
+def _delete_files(directory, ignore_files):
     files = os.listdir(directory)
     for file in files:
-        if all(not file.startswith(i) for i in {".", "__"}):
+        if all(not file.startswith(i) for i in ignore_files):
             path = os.path.join(directory, file)
             if os.path.isdir(path):
                 shutil.rmtree(path)

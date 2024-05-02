@@ -148,7 +148,8 @@ def checkout(branch_name):
     if not os.path.exists(branch_path):
         click.echo(f"Branch '{branch_name}' does not exist.")
         return
-    _delete_files(CURRENT_DIR)
+    ignore = set(_parse_ics_ignore())
+    _delete_files(CURRENT_DIR, ignore)
     last_commit = os.listdir(branch_path)[-1]
     last_commit_path = os.path.join(branch_path, last_commit)
     _copy_files(last_commit_path, CURRENT_DIR)
