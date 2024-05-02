@@ -31,13 +31,7 @@ def _copy_files(copy_from, copy_to, *files_to_copy):
     if copy_from != '' and not os.path.exists(copy_from):
         raise ValueError(f"This path '{copy_from}' does not exist")
     if not files_to_copy:
-        files_to_copy = set(os.listdir(copy_from))
-        for file in files_to_copy:
-            file_path = os.path.join(copy_from, file)
-            if os.path.isdir(file_path):
-                shutil.copytree(file_path, copy_to)
-            else:
-                shutil.copy2(file_path, copy_to)
+        shutil.copytree(copy_from, copy_to)
 
     else:
         if not os.path.exists(copy_to):

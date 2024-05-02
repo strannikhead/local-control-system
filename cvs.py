@@ -129,13 +129,13 @@ def branch(branch_name):
     if os.path.exists(branch_path):
         click.echo(f"You can't create branch with name '{branch_name}', because it already exists")
         return
-    branch_path = _get_branch_path()
+    current_branch_path = _get_branch_path()
 
-    if (len(os.listdir(branch_path)) == 0):
-        click.echo(f"`There are no commits on branch '{branch_path}'")
+    if len(os.listdir(current_branch_path)) == 0:
+        click.echo(f"`There are no commits on branch '{current_branch_path}'")
         return
 
-    _copy_files(_get_branch_path(), branch_path)
+    _copy_files(current_branch_path, branch_path)
     _clear_file(STAGING_AREA, "branch " + branch_path)
     click.echo(f"Creating new branch: {branch_name}...")
 
