@@ -63,7 +63,6 @@ def reset():
     _write_json_file(STAGING_AREA, staged_files_obj)
     click.echo(f"Reset staging area")
 
-
 # @cli.command()
 # @click.argument('message')
 # def commit(message):
