@@ -1,26 +1,30 @@
-import hashlib
+import json
 import os
 import shutil
-
-# from cvs import BRANCHES_DIR
-
-
-def _write_to_file(file_path, prefix, *data):
-    """Add files to the staging area"""
-    if not os.path.exists(file_path):
-        raise ValueError(f"There is no file '{file_path}'")
-    with open(file_path, "a") as file:
-        for write_data in data:
-            file.write(prefix + write_data + '\n')
+from pathlib import Path
 
 
-def _clear_file(file_path, write_data=None):
-    """Add files to the staging area"""
-    if not os.path.exists(file_path):
-        raise ValueError(f"There is no file '{file_path}'")
-    if write_data:
-        with open(file_path, "w+") as file:
-            file.write(write_data + '\n')
+def _read_json_file(path):
+    with open(path, 'r') as f:
+        return json.load(f)
+
+
+def _write_json_file(path, data):
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=4)
+
+
+def _get_all_files(path, ignore, staged_files):
+    dirs = [Path(path)]
+    while len(dirs) > 0:
+        p = dirs.pop()
+        for item in p.iterdir():
+            if any(str(item).startswith(i) for i in ignore):
+                continue
+            if item.is_dir():
+                dirs.append(item)
+            elif str(item) not in staged_files:
+                yield str(item)
 
 
 def _copy_files(copy_from, copy_to, *files_to_copy):
@@ -49,4 +53,3 @@ def _delete_files(directory, ignore_files):
                 shutil.rmtree(path)
             else:
                 os.remove(path)
-
