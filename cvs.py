@@ -2,7 +2,7 @@ import os
 import time
 import click
 from pathlib import Path
-from utils import _copy_files, _delete_files, _write_json_file, _read_json_file, _get_all_files
+from utils import _copy_files, _delete_files, _write_json_file, _read_json_file, _get_all_files, _get_file_hash
 
 MAIN_BRANCH = ".cvs/branches/main"
 BRANCHES = ".cvs/branches"
@@ -45,7 +45,7 @@ def add(files):
     staged_files_obj = _read_json_file(STAGING_AREA)
     staged_files = set(staged_files_obj["staging_files"])
     files_to_add = []
-    if not _try_get_files(files_to_add, files, ignores, staged_files):
+    if not _try_get_files_for_add(files_to_add, files, ignores, staged_files):
         return
     if not files_to_add:
         return
@@ -64,51 +64,33 @@ def reset():
     _write_json_file(STAGING_AREA, staged_files_obj)
     click.echo(f"Reset staging area")
 
+
 @cli.command()
 @click.argument('message')
 def commit(message):
     """Commit changes to the repository"""
     if not _check_repository_existence():
         return
-    # TODO: обновлять информацию о staging_area
     staged_files_obj = _read_json_file(STAGING_AREA)
-    if (not staged_files_obj["staging_files"]["add"] and not staged_files_obj["staging_files"]["modified"]
-            and not staged_files_obj["staging_files"]["deleted"]):
-        click.echo("There is nothing to commit")
-        return
-    branch_path = os.path.join(BRANCHES, staged_files_obj["current_branch"])
-    branch_log_path = os.path.join(BRANCHES_LOG, staged_files_obj["current_branch"])
-    branch_log_obj = _read_json_file(branch_log_path)
-    #
-    #
-    #
-    # branch_path = _get_branch_path()
-    # if not branch_path:
-    #     click.echo("Switch to the branch you need to commit")
-    #     return
-    # staged_files = set(_get_staged_file_paths())
-    # if not staged_files:
-    #     click.echo("There is nothing to commit")
-    #     return
-    #
-    # commits = os.listdir(branch_path)
-    # commit_path = os.path.join(branch_path, str(time.time() * 1000)[:13])
-    # commit_info_path = os.path.join(commit_path, "commit_info.txt")
-    # _copy_files("", commit_path, *staged_files)
-    #
-    # if commits:
-    #     last_commit = commits[-1]
-    #     last_commit_path = os.path.join(branch_path, last_commit)
-    #     last_commit_files = set(os.listdir(last_commit_path))
-    #     last_commit_files.remove("commit_info.txt")
-    #     unstaged_files = last_commit_files.difference(staged_files)
-    #     if unstaged_files:
-    #         _copy_files(last_commit_path, commit_path, *unstaged_files)
-    #
-    # with open(commit_info_path, "w+", encoding="UTF-8") as f:
-    #     f.write(message)
-    # _clear_file(STAGING_AREA, "branch " + branch_path)
-    # click.echo(f"Committing changes with message: {message}")
+    last_commit = _get_last_commit(staged_files_obj["current_branch"])
+    commit_id = str(time.time() * 1000)[:13]
+
+    prev_files = dict()
+    parent_commit_id = None
+    parent_commit_branch = None
+    if last_commit:
+        parent_commit_id = last_commit["parent_commit_id"]
+        parent_commit_branch = last_commit["parent_commit_branch"]
+        prev_files = last_commit['files']
+
+    files_to_copy = _get_files_for_commit(prev_files,
+                                          staged_files_obj["staging_files"],
+                                          staged_files_obj["current_branch"],
+                                          commit_id)
+
+    _create_commit(staged_files_obj["current_branch"], commit_id, message,
+                   files_to_copy, parent_commit_id, parent_commit_branch)
+    click.echo(f"Changes were commited with message: {message}")
 
 
 # @cli.command()
@@ -125,27 +107,26 @@ def commit(message):
 #         branch_path = os.path.join(BRANCHES_DIR, br)
 #         for com in os.listdir(branch_path):
 #             click.echo(f"  - {com}")
-#
-#
-# @cli.command()
-# @click.argument('branch_name')
-# def branch(branch_name):
-#     """Create a new branch"""
-#     branch_path = os.path.join(BRANCHES_DIR, branch_name)
-#     if os.path.exists(branch_path):
-#         click.echo(f"You can't create branch with name '{branch_name}', because it already exists")
-#         return
-#     current_branch_path = _get_branch_path()
-#
-#     if len(os.listdir(current_branch_path)) == 0:
-#         click.echo(f"`There are no commits on branch '{current_branch_path}'")
-#         return
-#
-#     _copy_files(current_branch_path, branch_path)
-#     _clear_file(STAGING_AREA, "branch " + branch_path)
-#     click.echo(f"Creating new branch: {branch_name}...")
-#
-#
+
+
+@cli.command()
+@click.argument('branch_name')
+def branch(branch_name):
+    """Create a new branch"""
+    if not _check_repository_existence():
+        return
+    if os.path.exists(os.path.join(BRANCHES, branch_name)):
+        click.echo(f"You can't create branch with name '{branch_name}', because it already exists")
+        return
+    staged_files_obj = _read_json_file(STAGING_AREA)
+    last_commit = _get_last_commit(staged_files_obj["current_branch"])
+    if not last_commit:
+        click.echo(f"`There are no commits on branch '{staged_files_obj["current_branch"]}'")
+        return
+    _create_branch(branch_name, last_commit["parent_commit_branch"], last_commit["parent_commit_id"])
+    click.echo(f"Creating new branch: {branch_name}...")
+
+
 # @cli.command()
 # @click.argument('branch_name')
 # def checkout(branch_name):
@@ -171,7 +152,7 @@ def _check_repository_existence():
 
 
 def _create_branch(name, parent_branch, parent_commit_id):
-    branch_info_obj = {
+    branch_log_obj = {
         "branch": name,
         "parent_branch": parent_branch,
         "parent_commit_id": parent_commit_id,
@@ -179,21 +160,32 @@ def _create_branch(name, parent_branch, parent_commit_id):
         "commits": dict()
     }
     branch_path = os.path.join(BRANCHES, name)
-    branch_info_path = os.path.join(BRANCHES_LOG, f"{name}.json")
-    _write_json_file(branch_info_path, branch_info_obj)
+    branch_log_path = os.path.join(BRANCHES_LOG, f"{name}.json")
+    _write_json_file(branch_log_path, branch_log_obj)
     os.makedirs(branch_path, exist_ok=True)
 
 
-# def _create_commit(branch_name, commit_id, ):
-#     branch_log_path = os.path.join(BRANCHES_LOG, staged_files_obj["current_branch"])
-#     branch_log_obj = _read_json_file(branch_log_path)
-#     branch_data = read_branch_file(branch_file)
-#     branch_data["commits"].append(commit_data)
-#     branch_data["current_commit"] = commit_data["commit_id"]
-#     write_branch_file(branch_file, branch_data)
+def _create_commit(branch_name, commit_id, message, files: dict,
+                   parent_commit_id=None, parent_commit_branch=None):
+    branch_log_path = os.path.join(BRANCHES_LOG, f"{branch_name}.json")
+    branch_log_obj = _read_json_file(branch_log_path)
+    commit_info_obj = {
+        "time": time.ctime(),
+        "parent_commit_branch": parent_commit_branch,
+        "parent_commit_id": parent_commit_id,
+        "branch": branch_name,
+        "id": commit_id,
+        "message": message,
+        "files": files
+    }
+    branch_log_obj["commits"][commit_id] = commit_info_obj
+    _write_json_file(branch_log_path, branch_log_obj)
+    commit_path = os.path.join(BRANCHES, branch_name, commit_id)
+    os.makedirs(commit_path, exist_ok=True)
+    _copy_files(commit_path, files.keys())
 
 
-def _try_get_files(answer, files,  ignores, staged_files):
+def _try_get_files_for_add(answer, files, ignores, staged_files):
     not_found = []
     if len(files) == 1 and files[0] == "*":
         answer += _get_all_files('', ignores, staged_files)
@@ -217,6 +209,65 @@ def _try_get_files(answer, files,  ignores, staged_files):
     if not_found:
         click.echo(f"There is no files : {', '.join(not_found)}")
     return True
+
+
+def _get_files_for_commit(prev_files, staged_files,
+                          current_branch, commit_id):
+    files_to_copy = dict()
+    if prev_files:
+        prev_files = {file: data for file, data in prev_files.items
+                      if os.path.exists(file)}
+
+    for file in staged_files:
+        if not os.path.exists(file):
+            continue
+        file_hash = _get_file_hash(file)
+        file_path = os.path.join(BRANCHES, current_branch,
+                                 commit_id, Path(file).name)
+        if file in prev_files.keys() and file_hash == prev_files[file][1]:
+            files_to_copy[file] = prev_files[file]
+        else:
+            files_to_copy[file] = [file_path, file_hash]
+
+    for file, file_data in prev_files.items():
+        if file not in files_to_copy.keys():
+            files_to_copy[file] = file_data
+
+    return files_to_copy
+
+
+def _try_get_parent_commit(current_branch):
+    branch_log_path = os.path.join(BRANCHES_LOG, current_branch)
+    branch_log_obj = _read_json_file(branch_log_path)
+    if branch_log_obj["head"]:
+        parent_branch = branch_log_obj["commits"][branch_log_obj["head"]]["parent_commit_branch"]
+        parent_commit = branch_log_obj["commits"][branch_log_obj["head"]]["parent_commit_id"]
+        branch_log_path = os.path.join(BRANCHES_LOG, parent_branch)
+        branch_log_obj = _read_json_file(branch_log_path)
+        if parent_commit in branch_log_obj["commits"].keys:
+            return branch_log_obj["commits"][parent_commit]
+    elif branch_log_obj["parent_branch"] and branch_log_obj["parent_commit_id"]:
+        parent_branch = branch_log_obj["parent_branch"]
+        parent_commit = branch_log_obj["parent_commit_id"]
+        branch_log_path = os.path.join(BRANCHES_LOG, parent_branch)
+        branch_log_obj = _read_json_file(branch_log_path)
+        if parent_commit in branch_log_obj["commits"].keys:
+            return branch_log_obj["commits"][parent_commit]
+    return None
+
+
+def _get_last_commit(current_branch):
+    branch_log_path = os.path.join(BRANCHES_LOG, current_branch)
+    branch_log_obj = _read_json_file(branch_log_path)
+    if branch_log_obj["head"] and branch_log_obj["head"] in branch_log_obj["commits"].keys:
+        return branch_log_obj["commits"][branch_log_obj["head"]]
+    elif branch_log_obj["parent_branch"] and branch_log_obj["parent_commit_id"]:
+        parent_commit = branch_log_obj["parent_commit_id"]
+        branch_log_path = os.path.join(BRANCHES_LOG, branch_log_obj["parent_branch"])
+        branch_log_obj = _read_json_file(branch_log_path)
+        if parent_commit in branch_log_obj["commits"].keys:
+            return branch_log_obj["commits"][parent_commit]
+    return None
 
 
 if __name__ == "__main__":

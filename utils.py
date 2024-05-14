@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import shutil
@@ -27,21 +28,29 @@ def _get_all_files(path, ignore, staged_files):
                 yield str(item)
 
 
-def _copy_files(copy_from, copy_to, *files_to_copy):
-    """Moves files from the 'copy_from' directory to the 'copy_to' directory
-    based on the file paths from the 'files_to_copy' list. If the 'files_to_copy'
-    parameter is not specified, the default method moves all files from the 'copy_from'
-    directory"""
-    if copy_from != '' and not os.path.exists(copy_from):
-        raise ValueError(f"This path '{copy_from}' does not exist")
-    if not files_to_copy:
-        shutil.copytree(copy_from, copy_to)
+def _get_file_hash(path):
+    h = hashlib.new('sha256')
+    c = int(h.hexdigest(), 16)
+    print(c)
+    print(c % 10 ** 77)
+    with open(path, "r") as f:
+        for line in f:
+            h.update(line.encode())
+    return h.hexdigest()
 
-    else:
-        if not os.path.exists(copy_to):
-            os.makedirs(copy_to, exist_ok=True)
-        for item in files_to_copy:
-            shutil.copy2(item, copy_to)
+
+def _copy_files(copy_to, files_to_copy):
+    """Receives files paths and directory to which files will be copied"""
+    # if copy_from != '' and not os.path.exists(copy_from):
+    #     raise ValueError(f"This path '{copy_from}' does not exist")
+    # if not files_to_copy:
+    #     shutil.copytree(copy_from, copy_to)
+    #
+    # else:
+    #     if not os.path.exists(copy_to):
+    #         os.makedirs(copy_to, exist_ok=True)
+    #     for item in files_to_copy:
+    #         shutil.copy2(item, copy_to)
 
 
 def _delete_files(directory, ignore_files):
