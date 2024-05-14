@@ -27,7 +27,7 @@ def init():
         _create_branch("main", None, None)
         staging_area_obj = {
             "current_branch": "main",
-            "staging_files": {"no_changes": [], "add": [], "modified": [], "deleted": []}
+            "staging_files": []
         }
         _write_json_file(STAGING_AREA, staging_area_obj)
         _write_json_file(GITIGNORE, [".", "_"])
@@ -38,16 +38,18 @@ def init():
 @click.argument('files', nargs=-1)
 def add(files):
     """Add files to the staging area"""
-    # TODO: обновлять информацию о staging_area
     if not _check_repository_existence():
         return
+    # TODO: обновлять информацию о staging_area
     ignores = _read_json_file(GITIGNORE)
     staged_files_obj = _read_json_file(STAGING_AREA)
-    staged_files = set(i for k, v in staged_files_obj["staging_files"].items() for i in v)
+    staged_files = set(staged_files_obj["staging_files"])
     files_to_add = []
-    if _try_get_files(files_to_add, files, ignores, staged_files):
+    if not _try_get_files(files_to_add, files, ignores, staged_files):
         return
-    staged_files_obj["staging_files"]["add"] += files_to_add
+    if not files_to_add:
+        return
+    staged_files_obj["staging_files"] += files_to_add
     _write_json_file(STAGING_AREA, staged_files_obj)
     click.echo(f"Added {len(files_to_add)} file(s) to staging area: {', '.join(files_to_add)}")
 
@@ -58,46 +60,57 @@ def reset():
     if not _check_repository_existence():
         return
     staged_files_obj = _read_json_file(STAGING_AREA)
-    for key in staged_files_obj["staging_files"]:
-        staged_files_obj["staging_files"][key] = []
+    staged_files_obj["staging_files"] = []
     _write_json_file(STAGING_AREA, staged_files_obj)
     click.echo(f"Reset staging area")
 
-# @cli.command()
-# @click.argument('message')
-# def commit(message):
-#     """Commit changes to the repository"""
-#     if not _check_repository_existence() or not _check_staging_area_existence():
-#         return
-#     branch_path = _get_branch_path()
-#     if not branch_path:
-#         click.echo("Switch to the branch you need to commit")
-#         return
-#     staged_files = set(_get_staged_file_paths())
-#     if not staged_files:
-#         click.echo("There is nothing to commit")
-#         return
-#
-#     commits = os.listdir(branch_path)
-#     commit_path = os.path.join(branch_path, str(time.time() * 1000)[:13])
-#     commit_info_path = os.path.join(commit_path, "commit_info.txt")
-#     _copy_files("", commit_path, *staged_files)
-#
-#     if commits:
-#         last_commit = commits[-1]
-#         last_commit_path = os.path.join(branch_path, last_commit)
-#         last_commit_files = set(os.listdir(last_commit_path))
-#         last_commit_files.remove("commit_info.txt")
-#         unstaged_files = last_commit_files.difference(staged_files)
-#         if unstaged_files:
-#             _copy_files(last_commit_path, commit_path, *unstaged_files)
-#
-#     with open(commit_info_path, "w+", encoding="UTF-8") as f:
-#         f.write(message)
-#     _clear_file(STAGING_AREA, "branch " + branch_path)
-#     click.echo(f"Committing changes with message: {message}")
-#
-#
+@cli.command()
+@click.argument('message')
+def commit(message):
+    """Commit changes to the repository"""
+    if not _check_repository_existence():
+        return
+    # TODO: обновлять информацию о staging_area
+    staged_files_obj = _read_json_file(STAGING_AREA)
+    if (not staged_files_obj["staging_files"]["add"] and not staged_files_obj["staging_files"]["modified"]
+            and not staged_files_obj["staging_files"]["deleted"]):
+        click.echo("There is nothing to commit")
+        return
+    branch_path = os.path.join(BRANCHES, staged_files_obj["current_branch"])
+    branch_log_path = os.path.join(BRANCHES_LOG, staged_files_obj["current_branch"])
+    branch_log_obj = _read_json_file(branch_log_path)
+    #
+    #
+    #
+    # branch_path = _get_branch_path()
+    # if not branch_path:
+    #     click.echo("Switch to the branch you need to commit")
+    #     return
+    # staged_files = set(_get_staged_file_paths())
+    # if not staged_files:
+    #     click.echo("There is nothing to commit")
+    #     return
+    #
+    # commits = os.listdir(branch_path)
+    # commit_path = os.path.join(branch_path, str(time.time() * 1000)[:13])
+    # commit_info_path = os.path.join(commit_path, "commit_info.txt")
+    # _copy_files("", commit_path, *staged_files)
+    #
+    # if commits:
+    #     last_commit = commits[-1]
+    #     last_commit_path = os.path.join(branch_path, last_commit)
+    #     last_commit_files = set(os.listdir(last_commit_path))
+    #     last_commit_files.remove("commit_info.txt")
+    #     unstaged_files = last_commit_files.difference(staged_files)
+    #     if unstaged_files:
+    #         _copy_files(last_commit_path, commit_path, *unstaged_files)
+    #
+    # with open(commit_info_path, "w+", encoding="UTF-8") as f:
+    #     f.write(message)
+    # _clear_file(STAGING_AREA, "branch " + branch_path)
+    # click.echo(f"Committing changes with message: {message}")
+
+
 # @cli.command()
 # def log():
 #     """Display commit history"""
@@ -162,8 +175,8 @@ def _create_branch(name, parent_branch, parent_commit_id):
         "branch": name,
         "parent_branch": parent_branch,
         "parent_commit_id": parent_commit_id,
-        "current_commit": None,
-        "commits": []
+        "head": None,
+        "commits": dict()
     }
     branch_path = os.path.join(BRANCHES, name)
     branch_info_path = os.path.join(BRANCHES_LOG, f"{name}.json")
@@ -171,8 +184,9 @@ def _create_branch(name, parent_branch, parent_commit_id):
     os.makedirs(branch_path, exist_ok=True)
 
 
-# def add_commit_to_branch(commit_data, branch_file):
-#     """Adds a commit to the specified branch."""
+# def _create_commit(branch_name, commit_id, ):
+#     branch_log_path = os.path.join(BRANCHES_LOG, staged_files_obj["current_branch"])
+#     branch_log_obj = _read_json_file(branch_log_path)
 #     branch_data = read_branch_file(branch_file)
 #     branch_data["commits"].append(commit_data)
 #     branch_data["current_commit"] = commit_data["commit_id"]
@@ -180,6 +194,7 @@ def _create_branch(name, parent_branch, parent_commit_id):
 
 
 def _try_get_files(answer, files,  ignores, staged_files):
+    not_found = []
     if len(files) == 1 and files[0] == "*":
         answer += _get_all_files('', ignores, staged_files)
     else:
@@ -191,13 +206,16 @@ def _try_get_files(answer, files,  ignores, staged_files):
                 return False
             elif p.is_absolute():
                 files[i] = file = os.path.join(*p.parts[len(cur_dir.parts):])
-
-            if any(file.startswith(i) for i in ignores) or p.is_dir() or not p.exists():
-                click.echo(f"There is no file '{file}'")
-                return False
+            if any(file.startswith(i) for i in ignores):
+                continue
+            if p.is_dir() or not p.exists():
+                not_found.append(file)
+                continue
 
             if file not in staged_files:
                 answer.append(file)
+    if not_found:
+        click.echo(f"There is no files : {', '.join(not_found)}")
     return True
 
 
