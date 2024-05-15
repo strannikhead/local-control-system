@@ -39,7 +39,7 @@ def _get_file_hash(path):
 def _copy_files(copy_to, files_to_copy):
     """Receives files paths and directory to which files will be copied"""
     for item in files_to_copy:
-        shutil.copy2(item, copy_to)
+        shutil.copy2(Path(item), copy_to)
 
 
 def _delete_files(directory, ignore):
@@ -54,15 +54,3 @@ def _delete_files(directory, ignore):
                 dirs.append(item)
             else:
                 os.remove(item)
-    _del_dir_if_empty(directory, ignore)
-
-
-def _del_dir_if_empty(directory, ignore):
-    path = Path(directory)
-    for item in path.iterdir():
-        if item.is_dir() and not any(str(item).startswith(i) or
-                                    item.name.startswith(i) for i in ignore):
-            _del_dir_if_empty(item, ignore)
-        else:
-            return
-    shutil.rmtree(path)

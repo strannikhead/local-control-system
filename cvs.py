@@ -154,8 +154,8 @@ def branch(branch_name):
     click.echo(f"Creating new branch: {branch_name}...")
 
 
-# @cli.command()
-# @click.argument('branch_name')
+@cli.command()
+@click.argument('branch_name')
 def checkout(branch_name):
     """Switch to a different branch"""
     if not _check_repository_existence():
@@ -172,9 +172,9 @@ def checkout(branch_name):
     staged_files_obj["staging_files"] = []
     staged_files_obj["current_branch"] = branch_name
     _write_json_file(STAGING_AREA, staged_files_obj)
-    _delete_files("", ignores)
+    _delete_files(".", ignores)
     last_commit = _get_last_commit(branch_name)
-    _copy_files("", last_commit["files"])
+    _copy_files(".", [val[0] for key, val in last_commit["files"].items()])
     click.echo(f"Switching to branch: {branch_name}")
 
 
@@ -315,5 +315,4 @@ def _get_last_commit(current_branch):
 
 
 if __name__ == "__main__":
-    # cli()
-    checkout("main")
+    cli()
