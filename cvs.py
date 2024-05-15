@@ -242,9 +242,9 @@ def _get_files_for_commit(prev_files, staged_files,
             files_to_copy[file] = prev_files[file]
         else:
             files_to_copy[file] = [file_path, file_hash]
-    # if not files_to_copy:
-    #     click.echo(f"There are not any changes to commit")
-    #     return dict(), {}
+    if not files_to_copy:
+        click.echo(f"There are not any changes to commit")
+        return dict(), {}
 
     for file, file_data in prev_files.items():
         if file not in files_to_copy.keys():
