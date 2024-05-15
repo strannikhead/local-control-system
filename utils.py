@@ -60,7 +60,7 @@ def _delete_files(directory, ignore):
 def _del_dir_if_empty(directory, ignore):
     path = Path(directory)
     for item in path.iterdir():
-        if item.is_dir() or not any(str(item).startswith(i) or
+        if item.is_dir() and not any(str(item).startswith(i) or
                                     item.name.startswith(i) for i in ignore):
             _del_dir_if_empty(item, ignore)
         else:
