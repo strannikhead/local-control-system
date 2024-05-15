@@ -30,7 +30,9 @@ def init():
             "staging_files": []
         }
         _write_json_file(STAGING_AREA, staging_area_obj)
-        _write_json_file(GITIGNORE, [".", "_"])
+        _write_json_file(GITIGNORE, [".", "_", "cvs.py", "cvs_tests.py",
+                                     "utils.py", "setup.py", "README.md",
+                                     "requirements.txt"])
         click.echo("Initializing CVS repository...")
 
 
@@ -152,21 +154,25 @@ def branch(branch_name):
     click.echo(f"Creating new branch: {branch_name}...")
 
 
-# @cli.command()
-# @click.argument('branch_name')
-# def checkout(branch_name):
-#     """Switch to a different branch"""
-#     branch_path = os.path.join(BRANCHES_DIR, branch_name)
-#     if not os.path.exists(branch_path):
-#         click.echo(f"Branch '{branch_name}' does not exist.")
-#         return
-#     ignore = set(_parse_ics_ignore())
-#     _delete_files(CURRENT_DIR, ignore)
-#     last_commit = os.listdir(branch_path)[-1]
-#     last_commit_path = os.path.join(branch_path, last_commit)
-#     _copy_files(last_commit_path, CURRENT_DIR)
-#     _clear_file(STAGING_AREA, "branch " + branch_path)
-#     click.echo(f"Switching to branch: {branch_name}")
+@cli.command()
+@click.argument('branch_name')
+def checkout(branch_name):
+    """Switch to a different branch"""
+    if not _check_repository_existence():
+        return
+    branch_log_obj = os.path.join(BRANCHES_LOG, f"{branch_name}.json")
+    if not os.path.exists(branch_log_obj):
+        click.echo(f"Branch '{branch_name}' does not exist.")
+        return
+    staged_files_obj = _read_json_file(STAGING_AREA)
+    ignores = _read_json_file(GITIGNORE)
+    staged_files_obj["staging_files"] = []
+    staged_files_obj["current_branch"] = branch_name
+    _write_json_file(STAGING_AREA, staged_files_obj)
+    _delete_files("", ignores)
+    last_commit = _get_last_commit(branch_name)
+    _copy_files("", last_commit["files"])
+    click.echo(f"Switching to branch: {branch_name}")
 
 
 def _check_repository_existence():
@@ -207,9 +213,11 @@ def _create_commit(branch_name, commit_id, message, files: dict,
     branch_log_obj["head"] = commit_id
     _write_json_file(branch_log_path, branch_log_obj)
     commit_path = os.path.join(BRANCHES, branch_name, commit_id)
-    os.makedirs(commit_path, exist_ok=True)
-    _copy_files(commit_path, [file for file, data in files.items()
-                              if Path(data[0]).parts[-2] == commit_id])
+    files_to_copy = [file for file, data in files.items()
+                     if Path(data[0]).parts[-2] == commit_id]
+    if files_to_copy:
+        os.makedirs(commit_path, exist_ok=True)
+        _copy_files(commit_path, files_to_copy)
 
 
 def _try_get_files_for_add(answer, files, ignores, staged_files):
@@ -298,7 +306,7 @@ def _get_last_commit(current_branch):
         parent_commit = branch_log_obj["parent_commit_id"]
         branch_log_path = os.path.join(BRANCHES_LOG, f"{branch_log_obj["parent_branch"]}.json")
         branch_log_obj = _read_json_file(branch_log_path)
-        if parent_commit in branch_log_obj["commits"].keys:
+        if parent_commit in branch_log_obj["commits"].keys():
             return branch_log_obj["commits"][parent_commit]
     return None
 

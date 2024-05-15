@@ -42,12 +42,27 @@ def _copy_files(copy_to, files_to_copy):
         shutil.copy2(item, copy_to)
 
 
-def _delete_files(directory, ignore_files):
-    files = os.listdir(directory)
-    for file in files:
-        if all(not file.startswith(i) for i in ignore_files):
-            path = os.path.join(directory, file)
-            if os.path.isdir(path):
-                shutil.rmtree(path)
+def _delete_files(directory, ignore):
+    dirs = [Path(directory)]
+    while len(dirs) > 0:
+        p = dirs.pop()
+        for item in p.iterdir():
+            if any(str(item).startswith(i) or item.name.startswith(i)
+                   for i in ignore):
+                continue
+            if item.is_dir():
+                dirs.append(item)
             else:
-                os.remove(path)
+                os.remove(item)
+    _del_dir_if_empty(directory, ignore)
+
+
+def _del_dir_if_empty(directory, ignore):
+    path = Path(directory)
+    for item in path.iterdir():
+        if item.is_dir() or not any(str(item).startswith(i) or
+                                    item.name.startswith(i) for i in ignore):
+            _del_dir_if_empty(item, ignore)
+        else:
+            return
+    shutil.rmtree(path)
