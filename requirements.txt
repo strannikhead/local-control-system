@@ -1,3 +1,4 @@
 click~=8.1.7
 setuptools~=69.5.1
 cvs~=1.0
+pytest~=8.2.0
