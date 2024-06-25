@@ -2,7 +2,9 @@ import os
 import time
 import click
 from pathlib import Path
+from enum import Enum
 from utils import _copy_files, _delete_files, _write_json_file, _read_json_file, _get_all_files, _get_file_hash
+
 
 MAIN_BRANCH = ".cvs/branches/main"
 BRANCHES = ".cvs/branches"
@@ -12,6 +14,12 @@ GITIGNORE = ".cvs/cvsignore.json"
 CURRENT_DIR = os.getcwd()
 
 
+class FileState(Enum):
+    Added = 1
+    Modified = 2
+    Deleted = 3
+
+
 @click.group()
 def cli():
     """Local Version Control System"""
@@ -19,6 +27,51 @@ def cli():
 
 @cli.command()
 def init():
+    """Initialize a new VCS repository"""
+    _init()
+
+
+@cli.command()
+@click.argument('files', nargs=-1)
+def add(files):
+    """Add files to the staging area"""
+    _add(files)
+
+
+@cli.command()
+def reset():
+    """Reset the staging area"""
+    _reset()
+
+
+@cli.command()
+@click.argument('message')
+def commit(message):
+    """Commit changes to the repository"""
+    _commit(message)
+
+
+@cli.command()
+def log():
+    """Display commit history"""
+    _log()
+
+
+@cli.command()
+@click.argument('branch_name')
+def branch(branch_name):
+    """Create a new branch"""
+    _branch(branch_name)
+
+
+@cli.command()
+@click.argument('branch_name')
+def checkout(branch_name):
+    """Switch to a different branch"""
+    _checkout(branch_name)
+
+
+def _init():
     """Initialize a new VCS repository"""
     if os.path.exists(MAIN_BRANCH):
         click.echo("Repository has been already initialized")
@@ -36,9 +89,7 @@ def init():
         click.echo("Initializing CVS repository...")
 
 
-@cli.command()
-@click.argument('files', nargs=-1)
-def add(files):
+def _add(files):
     """Add files to the staging area"""
     if not _check_repository_existence():
         return
@@ -56,8 +107,7 @@ def add(files):
     click.echo(f"Added {len(files_to_add)} file(s) to staging area: {', '.join(files_to_add)}")
 
 
-@cli.command()
-def reset():
+def _reset():
     """Reset the staging area"""
     if not _check_repository_existence():
         return
@@ -67,9 +117,7 @@ def reset():
     click.echo(f"Reset staging area")
 
 
-@cli.command()
-@click.argument('message')
-def commit(message):
+def _commit(message):
     """Commit changes to the repository"""
     if not _check_repository_existence():
         return
@@ -110,8 +158,7 @@ def commit(message):
     click.echo(f"Changes were commited with message: {message}")
 
 
-@cli.command()
-def log():
+def _log():
     """Display commit history"""
     if not _check_repository_existence():
         return
@@ -134,9 +181,7 @@ def log():
             dummy = commits[dummy]["parent_commit_id"]
 
 
-@cli.command()
-@click.argument('branch_name')
-def branch(branch_name):
+def _branch(branch_name):
     """Create a new branch"""
     if not _check_repository_existence():
         return
@@ -154,9 +199,7 @@ def branch(branch_name):
     click.echo(f"Creating new branch: {branch_name}...")
 
 
-@cli.command()
-@click.argument('branch_name')
-def checkout(branch_name):
+def _checkout(branch_name):
     """Switch to a different branch"""
     if not _check_repository_existence():
         return
