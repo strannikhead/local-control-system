@@ -1,9 +1,10 @@
 import os
 import time
 import click
+import exceptions
 from pathlib import Path
 from enum import Enum
-from utils import _copy_files, _delete_files, _write_json_file, _read_json_file, _get_all_files, _get_file_hash
+import utils as ut
 
 
 MAIN_BRANCH = ".cvs/branches/main"
@@ -20,6 +21,8 @@ class FileState(Enum):
     Deleted = 3
 
 
+#region Click
+
 @click.group()
 def cli():
     """Local Version Control System"""
@@ -28,14 +31,14 @@ def cli():
 @cli.command()
 def init():
     """Initialize a new VCS repository"""
-    _init()
+    _init(console_info=True)
 
 
 @cli.command()
 @click.argument('files', nargs=-1)
 def add(files):
     """Add files to the staging area"""
-    _add(files)
+    _add(files, console_info=True)
 
 
 @cli.command()
@@ -48,7 +51,7 @@ def reset():
 @click.argument('message')
 def commit(message):
     """Commit changes to the repository"""
-    _commit(message)
+    _commit(message, console_info=True)
 
 
 @cli.command()
@@ -61,17 +64,22 @@ def log():
 @click.argument('branch_name')
 def branch(branch_name):
     """Create a new branch"""
-    _branch(branch_name)
+    _branch(branch_name, console_info=True)
 
 
 @cli.command()
 @click.argument('branch_name')
 def checkout(branch_name):
     """Switch to a different branch"""
-    _checkout(branch_name)
+    _checkout(branch_name, console_info=True)
 
 
-def _init():
+#endregion
+
+#region Base
+
+
+def _init(console_info=False):
     """Initialize a new VCS repository"""
     if os.path.exists(MAIN_BRANCH):
         click.echo("Repository has been already initialized")
@@ -82,20 +90,20 @@ def _init():
             "current_branch": "main",
             "staging_files": []
         }
-        _write_json_file(STAGING_AREA, staging_area_obj)
-        _write_json_file(GITIGNORE, [".", "_", "cvs.py", "cvs_tests.py",
+        ut.write_json_file(STAGING_AREA, staging_area_obj)
+        ut.write_json_file(GITIGNORE, [".", "_", "cvs.py", "cvs_tests.py",
                                      "utils.py", "setup.py", "README.md",
                                      "requirements.txt"])
-        click.echo("Initializing CVS repository...")
+        if console_info:
+            click.echo("Repository was initialized")
 
 
-def _add(files):
+def _add(files, console_info=False):
     """Add files to the staging area"""
-    if not _check_repository_existence():
-        return
+    _check_repository_existence()
     # TODO: обновлять информацию о staging_area
-    ignores = _read_json_file(GITIGNORE)
-    staged_files_obj = _read_json_file(STAGING_AREA)
+    ignores = ut.read_json_file(GITIGNORE)
+    staged_files_obj = ut.read_json_file(STAGING_AREA)
     staged_files = set(staged_files_obj["staging_files"])
     files_to_add = []
     if not _try_get_files_for_add(files_to_add, files, ignores, staged_files):
@@ -103,28 +111,28 @@ def _add(files):
     if not files_to_add:
         return
     staged_files_obj["staging_files"] += files_to_add
-    _write_json_file(STAGING_AREA, staged_files_obj)
-    click.echo(f"Added {len(files_to_add)} file(s) to staging area: {', '.join(files_to_add)}")
+    ut.write_json_file(STAGING_AREA, staged_files_obj)
+    if console_info:
+        click.echo(f"Added {len(files_to_add)} file(s) to staging area: {', '.join(files_to_add)}")
 
 
-def _reset():
+def _reset(console_info=False):
     """Reset the staging area"""
-    if not _check_repository_existence():
-        return
-    staged_files_obj = _read_json_file(STAGING_AREA)
+    _check_repository_existence()
+    staged_files_obj = ut.read_json_file(STAGING_AREA)
     staged_files_obj["staging_files"] = []
-    _write_json_file(STAGING_AREA, staged_files_obj)
-    click.echo(f"Reset staging area")
+    ut.write_json_file(STAGING_AREA, staged_files_obj)
+    if console_info:
+        click.echo(f"Staging area was reset")
 
 
-def _commit(message):
+def _commit(message, console_info=False):
     """Commit changes to the repository"""
-    if not _check_repository_existence():
-        return
-    staged_files_obj = _read_json_file(STAGING_AREA)
+    _check_repository_existence()
+    staged_files_obj = ut.read_json_file(STAGING_AREA)
     if not staged_files_obj["staging_files"]:
-        click.echo(f"There are not any files in staging area")
-        return
+        raise exceptions.CommitException(f"There are not any files in staging area")
+
     last_commit = _get_last_commit(staged_files_obj["current_branch"])
     commit_id = str(time.time() * 1000)[:13]
 
@@ -149,24 +157,23 @@ def _commit(message):
         staged_files_obj["staging_files"] = new_staging_area
 
     if not files_to_copy:
-        click.echo(f"There are not any changes to commit")
-        return
+        raise exceptions.CommitException(f"There are not any changes to commit")
 
-    _write_json_file(STAGING_AREA, staged_files_obj)
+    ut.write_json_file(STAGING_AREA, staged_files_obj)
     _create_commit(staged_files_obj["current_branch"], commit_id, message,
                    files_to_copy, parent_commit_id, parent_commit_branch)
-    click.echo(f"Changes were commited with message: {message}")
+    if console_info:
+        click.echo(f"Changes were commited with message: {message}")
 
 
 def _log():
     """Display commit history"""
-    if not _check_repository_existence():
-        return
+    _check_repository_existence()
     click.echo("Commit History:")
     log_path = Path(BRANCHES_LOG)
     for branch_log_file in log_path.iterdir():
         p = os.path.join(BRANCHES_LOG, branch_log_file.name)
-        branch_log_obj = _read_json_file(p)
+        branch_log_obj = ut.read_json_file(p)
         click.echo(f"- {branch_log_obj['branch']}")
         dummy = branch_log_obj['head']
         if not dummy:
@@ -181,51 +188,51 @@ def _log():
             dummy = commits[dummy]["parent_commit_id"]
 
 
-def _branch(branch_name):
+def _branch(branch_name, console_info=False):
     """Create a new branch"""
-    if not _check_repository_existence():
-        return
+    _check_repository_existence()
     if os.path.exists(os.path.join(BRANCHES, branch_name)):
-        click.echo(f"You can't create branch with name '{branch_name}', because it already exists")
-        return
-    staged_files_obj = _read_json_file(STAGING_AREA)
+        raise exceptions.BranchException(f"You can't create branch with name '{branch_name}', because it already exists")
+
+    staged_files_obj = ut.read_json_file(STAGING_AREA)
     last_commit = _get_last_commit(staged_files_obj["current_branch"])
     if not last_commit:
-        click.echo(f"`There are no commits on branch '{staged_files_obj["current_branch"]}'")
-        return
+        raise exceptions.BranchException(f"`There are no commits on branch '{staged_files_obj["current_branch"]}'")
+
     _create_branch(branch_name, last_commit["branch"], last_commit["id"])
     staged_files_obj["current_branch"] = branch_name
-    _write_json_file(STAGING_AREA, staged_files_obj)
-    click.echo(f"Creating new branch: {branch_name}...")
+    ut.write_json_file(STAGING_AREA, staged_files_obj)
+    if console_info:
+        click.echo(f"Creating new branch: {branch_name}...")
 
 
-def _checkout(branch_name):
+def _checkout(branch_name, console_info=False):
     """Switch to a different branch"""
-    if not _check_repository_existence():
-        return
+    _check_repository_existence()
     branch_log_obj = os.path.join(BRANCHES_LOG, f"{branch_name}.json")
     if not os.path.exists(branch_log_obj):
-        click.echo(f"Branch '{branch_name}' does not exist.")
-        return
-    staged_files_obj = _read_json_file(STAGING_AREA)
+        raise exceptions.CheckoutException(f"Branch '{branch_name}' does not exist.")
+
+    staged_files_obj = ut.read_json_file(STAGING_AREA)
     if branch_name == staged_files_obj["current_branch"]:
-        click.echo(f"You are already on branch '{branch_name}'")
-        return
-    ignores = _read_json_file(GITIGNORE)
+        raise exceptions.CheckoutException(f"You are already on branch '{branch_name}'")
+
+    ignores = ut.read_json_file(GITIGNORE)
     staged_files_obj["staging_files"] = []
     staged_files_obj["current_branch"] = branch_name
-    _write_json_file(STAGING_AREA, staged_files_obj)
-    _delete_files(".", ignores)
+    ut.write_json_file(STAGING_AREA, staged_files_obj)
+    ut.delete_files(".", ignores)
     last_commit = _get_last_commit(branch_name)
-    _copy_files(".", [val[0] for key, val in last_commit["files"].items()])
-    click.echo(f"Switching to branch: {branch_name}")
+    ut.copy_files(".", [val[0] for key, val in last_commit["files"].items()])
+    if console_info:
+        click.echo(f"Switching to branch: {branch_name}")
+
+#endregion
 
 
 def _check_repository_existence():
     if not os.path.exists(MAIN_BRANCH):
-        click.echo("There is no initialized repository")
-        return False
-    return True
+        raise exceptions.RepositoryException("There is no initialized repository")
 
 
 def _create_branch(name, parent_branch, parent_commit_id):
@@ -238,14 +245,14 @@ def _create_branch(name, parent_branch, parent_commit_id):
     }
     branch_path = os.path.join(BRANCHES, name)
     branch_log_path = os.path.join(BRANCHES_LOG, f"{name}.json")
-    _write_json_file(branch_log_path, branch_log_obj)
+    ut.write_json_file(branch_log_path, branch_log_obj)
     os.makedirs(branch_path, exist_ok=True)
 
 
 def _create_commit(branch_name, commit_id, message, files: dict,
                    parent_commit_id=None, parent_commit_branch=None):
     branch_log_path = os.path.join(BRANCHES_LOG, f"{branch_name}.json")
-    branch_log_obj = _read_json_file(branch_log_path)
+    branch_log_obj = ut.read_json_file(branch_log_path)
     commit_info_obj = {
         "time": time.ctime(),
         "parent_commit_branch": parent_commit_branch,
@@ -257,19 +264,19 @@ def _create_commit(branch_name, commit_id, message, files: dict,
     }
     branch_log_obj["commits"][commit_id] = commit_info_obj
     branch_log_obj["head"] = commit_id
-    _write_json_file(branch_log_path, branch_log_obj)
+    ut.write_json_file(branch_log_path, branch_log_obj)
     commit_path = os.path.join(BRANCHES, branch_name, commit_id)
     files_to_copy = [file for file, data in files.items()
                      if Path(data[0]).parts[-2] == commit_id]
     if files_to_copy:
         os.makedirs(commit_path, exist_ok=True)
-        _copy_files(commit_path, files_to_copy)
+        ut.copy_files(commit_path, files_to_copy)
 
 
 def _try_get_files_for_add(answer, files, ignores, staged_files):
     not_found = []
     if len(files) == 1 and files[0] == "*":
-        answer += _get_all_files('', ignores, staged_files)
+        answer += ut.get_all_files('', ignores, staged_files)
     else:
         for i, file in enumerate(files):
             p = Path(file)
@@ -304,7 +311,7 @@ def _get_files_for_commit(prev_files, staged_files,
         if not os.path.exists(file):
             deleted_files.add(file)
             continue
-        file_hash = _get_file_hash(file)
+        file_hash = ut.get_file_hash(file)
         file_path = os.path.join(BRANCHES, current_branch,
                                  commit_id, Path(file).name)
         if file in prev_files.keys() and file_hash == prev_files[file][1]:
@@ -324,19 +331,19 @@ def _get_files_for_commit(prev_files, staged_files,
 
 def _try_get_parent_commit(current_branch):
     branch_log_path = os.path.join(BRANCHES_LOG, f"{current_branch}.json")
-    branch_log_obj = _read_json_file(branch_log_path)
+    branch_log_obj = ut.read_json_file(branch_log_path)
     if branch_log_obj["head"]:
         parent_branch = branch_log_obj["commits"][branch_log_obj["head"]]["parent_commit_branch"]
         parent_commit = branch_log_obj["commits"][branch_log_obj["head"]]["parent_commit_id"]
         branch_log_path = os.path.join(BRANCHES_LOG, f"{parent_branch}.json")
-        branch_log_obj = _read_json_file(branch_log_path)
+        branch_log_obj = ut.read_json_file(branch_log_path)
         if parent_commit in branch_log_obj["commits"].keys:
             return branch_log_obj["commits"][parent_commit]
     elif branch_log_obj["parent_branch"] and branch_log_obj["parent_commit_id"]:
         parent_branch = branch_log_obj["parent_branch"]
         parent_commit = branch_log_obj["parent_commit_id"]
         branch_log_path = os.path.join(BRANCHES_LOG, f"{parent_branch}.json")
-        branch_log_obj = _read_json_file(branch_log_path)
+        branch_log_obj = ut.read_json_file(branch_log_path)
         if parent_commit in branch_log_obj["commits"].keys:
             return branch_log_obj["commits"][parent_commit]
     return None
@@ -344,14 +351,14 @@ def _try_get_parent_commit(current_branch):
 
 def _get_last_commit(current_branch):
     branch_log_path = os.path.join(BRANCHES_LOG, f"{current_branch}.json")
-    branch_log_obj = _read_json_file(branch_log_path)
+    branch_log_obj = ut.read_json_file(branch_log_path)
     if (branch_log_obj["head"] and
             branch_log_obj["head"] in branch_log_obj["commits"].keys()):
         return branch_log_obj["commits"][branch_log_obj["head"]]
     elif branch_log_obj["parent_branch"] and branch_log_obj["parent_commit_id"]:
         parent_commit = branch_log_obj["parent_commit_id"]
         branch_log_path = os.path.join(BRANCHES_LOG, f"{branch_log_obj["parent_branch"]}.json")
-        branch_log_obj = _read_json_file(branch_log_path)
+        branch_log_obj = ut.read_json_file(branch_log_path)
         if parent_commit in branch_log_obj["commits"].keys():
             return branch_log_obj["commits"][parent_commit]
     return None
