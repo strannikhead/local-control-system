@@ -6,7 +6,6 @@ from pathlib import Path
 from enum import Enum
 import utils as ut
 
-
 MAIN_BRANCH = ".cvs/branches/main"
 BRANCHES = ".cvs/branches"
 BRANCHES_LOG = ".cvs/branches_log"
@@ -90,12 +89,23 @@ def _init(console_info=False):
         _create_branch("main", None, None)
         staging_area_obj = {
             "current_branch": "main",
-            "staging_files": []
+            "staging_files": {
+                "UNTRACKED": [],
+                "NEW": [],
+                "UNCHANGED": [],
+                "MODIFIED": [],
+                "DELETED": []
+            }
+        }
+        gitignore_obj = {
+            "START": [".", "_"],
+            "FORMATS": [".md"],
+            "FILES": ["cvs.py", "cvs_tests.py", "utils.py", "setup.py",
+                      "requirements.txt", "exceptions.py"],
+            "DIRECTORIES": []
         }
         ut.write_json_file(STAGING_AREA, staging_area_obj)
-        ut.write_json_file(GITIGNORE, [".", "_", "cvs.py", "cvs_tests.py",
-                                     "utils.py", "setup.py", "README.md",
-                                     "requirements.txt"])
+        ut.write_json_file(GITIGNORE, gitignore_obj)
         if console_info:
             click.echo("Repository was initialized")
 
@@ -194,7 +204,8 @@ def _branch(branch_name, console_info=False):
     """Create a new branch"""
     _check_repository_existence()
     if os.path.exists(os.path.join(BRANCHES, branch_name)):
-        raise exceptions.BranchException(f"You can't create branch with name '{branch_name}', because it already exists")
+        raise exceptions.BranchException(
+            f"You can't create branch with name '{branch_name}', because it already exists")
 
     staged_files_obj = ut.read_json_file(STAGING_AREA)
     last_commit = _get_last_commit(staged_files_obj["current_branch"])
@@ -229,6 +240,7 @@ def _checkout(branch_name, console_info=False):
     if console_info:
         click.echo(f"Switching to branch: {branch_name}")
 
+
 #endregion
 
 
@@ -238,17 +250,21 @@ def _check_repository_existence():
 
 
 def _create_branch(name, parent_branch, parent_commit_id):
+    branch_path = os.path.join(BRANCHES, name)
+    staging_area_path = os.path.join(branch_path, "staging_area.json")
     branch_log_obj = {
         "branch": name,
         "parent_branch": parent_branch,
         "parent_commit_id": parent_commit_id,
+        "staging_area": staging_area_path,
         "head": None,
         "commits": dict()
     }
-    branch_path = os.path.join(BRANCHES, name)
     branch_log_path = os.path.join(BRANCHES_LOG, f"{name}.json")
     ut.write_json_file(branch_log_path, branch_log_obj)
     os.makedirs(branch_path, exist_ok=True)
+    with open(staging_area_path, "w"):
+        pass
 
 
 def _create_commit(branch_name, commit_id, message, files: dict,
