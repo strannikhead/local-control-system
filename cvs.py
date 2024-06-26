@@ -16,9 +16,11 @@ CURRENT_DIR = os.getcwd()
 
 
 class FileState(Enum):
-    Added = 1
-    Modified = 2
-    Deleted = 3
+    UNTRACKED = 1
+    NEW = 2
+    UNCHANGED = 3
+    MODIFIED = 4
+    DELETED = 5
 
 
 #region Click
@@ -82,7 +84,7 @@ def checkout(branch_name):
 def _init(console_info=False):
     """Initialize a new VCS repository"""
     if os.path.exists(MAIN_BRANCH):
-        click.echo("Repository has been already initialized")
+        raise exceptions.RepositoryException("Repository has been already initialized")
     else:
         os.makedirs(BRANCHES_LOG, exist_ok=True)
         _create_branch("main", None, None)
