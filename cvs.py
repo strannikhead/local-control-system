@@ -112,7 +112,7 @@ def _init(console_info=False):
             pass
 
         if console_info:
-            click.echo("Repository was initialized")
+            click.echo("Repository was initialized\n")
 
 
 def _add(files, console_info=False):
@@ -122,7 +122,7 @@ def _add(files, console_info=False):
     untracked = set(staging_area["staging_files"][FileState.UNTRACKED.name])
 
     files_to_add = []
-    if len(files) == 1 and files[0] == "*":
+    if len(files) == 1 and files[0] == ".":
         files_to_add = staging_area["staging_files"][FileState.UNTRACKED.name]
         untracked = set()
     else:
@@ -133,14 +133,15 @@ def _add(files, console_info=False):
             untracked.remove(file)
 
     if not files_to_add and console_info:
-        click.echo("There are not any files to add")
+        click.echo("There are not any files to add\n")
 
     staging_area["staging_files"][FileState.UNTRACKED.name] = list(untracked)
     staging_area["staging_files"][FileState.NEW.name] += files_to_add
 
     ut.write_json_file(STAGING_AREA, staging_area)
     if console_info:
-        click.echo(f"Added {len(files_to_add)} file(s) to staging area: {', '.join(files_to_add)}")
+        click.echo(f"Added {len(files_to_add)} file(s) to "
+                   f"staging area: {', '.join(files_to_add)}\n")
 
 
 def _reset(console_info=False):
@@ -152,7 +153,7 @@ def _reset(console_info=False):
     staged_files_obj["staging_files"] = []
     ut.write_json_file(STAGING_AREA, staged_files_obj)
     if console_info:
-        click.echo(f"Staging area was reset")
+        click.echo(f"Staging area was reset\n")
 
 
 def _commit(message, console_info=False):
@@ -193,21 +194,19 @@ def _commit(message, console_info=False):
     _create_commit(staged_files_obj["current_branch"], commit_id, message,
                    files_to_copy, parent_commit_id, parent_commit_branch)
     if console_info:
-        click.echo(f"Changes were commited with message: {message}")
+        click.echo(f"Changes were commited with message: {message}\n")
 
 
 def _status():
     _check_repository_existence()
     staging_area = _update_staging_area()
     staging_files = staging_area["staging_files"]
-    status_list = [f"Current branch is '{staging_area["current_branch"]}'"]
-    status_list.append("\n")
+    status_list = [f"Current branch is '{staging_area["current_branch"]}'\n"]
     for key, files in staging_files.items():
         if files:
-            status_list.append(f"{key} FILES:")
+            status_list.append(f"{key} FILES:\n")
             for file in files:
-                status_list.append(f"- {file}")
-            status_list.append("\n")
+                status_list.append(f"- {file}\n")
     return status_list
 
 
@@ -252,7 +251,7 @@ def _branch(branch_name, console_info=False):
     staged_files_obj["current_branch"] = branch_name
     ut.write_json_file(STAGING_AREA, staged_files_obj)
     if console_info:
-        click.echo(f"Creating new branch: {branch_name}...")
+        click.echo(f"Branch '{branch_name}' was created\n")
 
 
 def _checkout(branch_name, console_info=False):
@@ -276,7 +275,7 @@ def _checkout(branch_name, console_info=False):
     last_commit = _get_last_commit(branch_name)
     ut.copy_files(".", [val[0] for key, val in last_commit["files"].items()])
     if console_info:
-        click.echo(f"Switching to branch: {branch_name}")
+        click.echo(f"Switched to branch '{branch_name}'\n")
 
 
 #endregion
@@ -292,6 +291,7 @@ def _update_staging_area():
     ignore = ut.read_json_file(GITIGNORE)
     staging_files = staging_area["staging_files"]
 
+    staging_files[FileState.UNTRACKED.name] = []
     added_files = set(staging_files[FileState.NEW.name])
     unchanged_files = set(staging_files[FileState.UNCHANGED.name])
     modified_files = set(staging_files[FileState.MODIFIED.name])
@@ -399,32 +399,6 @@ def _create_commit(branch_name, commit_id, message, files: dict,
         ut.copy_files(commit_path, files_to_copy)
 
 
-def _try_get_files_for_add(answer, files, ignores, staged_files):
-    not_found = []
-    if len(files) == 1 and files[0] == "*":
-        answer += ut.get_all_files('', ignores, staged_files)
-    else:
-        for i, file in enumerate(files):
-            p = Path(file)
-            cur_dir = Path(CURRENT_DIR)
-            if p.is_absolute() and any(p.parts[i] != cur_dir.parts[i] for i in range(len(cur_dir.parts))):
-                click.echo(f"There is no file '{file}'")
-                return False
-            elif p.is_absolute():
-                files[i] = file = os.path.join(*p.parts[len(cur_dir.parts):])
-            if any(file.startswith(i) for i in ignores):
-                continue
-            if p.is_dir() or not p.exists():
-                not_found.append(file)
-                continue
-
-            if file not in staged_files:
-                answer.append(file)
-    if not_found:
-        click.echo(f"There is no files : {', '.join(not_found)}")
-    return True
-
-
 def _get_files_for_commit(prev_files, staged_files,
                           current_branch, commit_id):
     files_to_copy = dict()
@@ -493,8 +467,10 @@ def _get_last_commit(current_branch):
 if __name__ == "__main__":
     # cli()
     _init()
-    print(_status())
-    _add(["123.txt"], True)
-    print(_status())
+    print("".join(_status()))
+    _add(["1.txt", "2.txt"], True)
+    print("".join(_status()))
+    _add(["."], True)
+    print("".join(_status()))
 
 
