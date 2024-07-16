@@ -15,17 +15,27 @@ def write_json_file(path, data):
         json.dump(data, f, indent=4)
 
 
-def get_all_files(path, ignore, staged_files):
+def get_files(path, ignore):
     dirs = [Path(path)]
     while len(dirs) > 0:
         p = dirs.pop()
         for item in p.iterdir():
-            if any(str(item).startswith(i) for i in ignore):
+            if _item_in_ignore(item, ignore):
                 continue
             if item.is_dir():
                 dirs.append(item)
-            elif str(item) not in staged_files:
-                yield str(item)
+            yield str(item)
+
+
+def _item_in_ignore(item, ignore_list):
+    item = Path(item)
+    name = item.name
+    if any(name.startswith(i) for i in ignore_list["START"]):
+        return False
+    if item.is_dir():
+        return name in ignore_list["DIRECTORIES"]
+    suffix = item.suffix
+    return suffix in ignore_list["FORMATS"] or name in ignore_list["FILES"]
 
 
 def get_file_hash(path):
