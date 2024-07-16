@@ -161,13 +161,15 @@ def _commit(message, console_info=False):
     """Commit changes to the repository"""
     _check_repository_existence()
     staging_area = _update_staging_area()
-    staged_files_obj = ut.read_json_file(STAGING_AREA)
-    if not staged_files_obj["staging_files"]:
-        raise exceptions.CommitException(f"There are not any files in staging area")
+    staging_files = staging_area["staging_files"]
 
-    last_commit = _get_last_commit(staged_files_obj["current_branch"])
+    if not (staging_files[FileState.NEW.name]
+            or staging_files[FileState.MODIFIED.name]
+            or staging_files[FileState.DELETED.name]):
+        raise exceptions.CommitException(f"There are not any changes to commit")
+
+    last_commit = _get_last_commit(staging_area["current_branch"])
     commit_id = str(time.time() * 1000)[:13]
-
     prev_files = dict()
     parent_commit_id = None
     parent_commit_branch = None
@@ -176,24 +178,18 @@ def _commit(message, console_info=False):
         parent_commit_branch = last_commit["branch"]
         prev_files = last_commit['files']
 
-    files_data = _get_files_for_commit(prev_files,
-                                       staged_files_obj["staging_files"],
-                                       staged_files_obj["current_branch"],
-                                       commit_id)
-    files_to_copy, deleted_files = files_data
-    if deleted_files:
-        new_staging_area = []
-        for file in staged_files_obj["staging_files"]:
-            if file not in deleted_files:
-                new_staging_area.append(file)
-        staged_files_obj["staging_files"] = new_staging_area
+    commit_files_data = _get_commit_files(prev_files, staging_area, commit_id)
 
-    if not files_to_copy:
-        raise exceptions.CommitException(f"There are not any changes to commit")
+    staging_files[FileState.UNCHANGED.name] += staging_files[FileState.NEW.name]
+    staging_files[FileState.UNCHANGED.name] += staging_files[FileState.MODIFIED.name]
+    staging_files[FileState.DELETED.name] = []
+    staging_files[FileState.MODIFIED.name] = []
+    staging_files[FileState.NEW.name] = []
 
-    ut.write_json_file(STAGING_AREA, staged_files_obj)
-    _create_commit(staged_files_obj["current_branch"], commit_id, message,
-                   files_to_copy, parent_commit_id, parent_commit_branch)
+    ut.write_json_file(STAGING_AREA, staging_area)
+    _create_commit(staging_area["current_branch"], commit_id, message,
+                   commit_files_data, parent_commit_id, parent_commit_branch)
+
     if console_info:
         click.echo(f"Changes were commited with message: {message}\n")
 
@@ -312,9 +308,6 @@ def _update_staging_area():
         else:
             staging_files[FileState.UNTRACKED.name].append(file)
 
-    for file in added_files.difference(new_added_files):
-        if file in deleted_files:
-            deleted_files.remove(file)
     for file in unchanged_files.difference(new_unchanged_files):
         deleted_files.add(file)
     for file in modified_files.difference(new_modified_files):
@@ -356,6 +349,9 @@ def _update_changes(staging_area=None):
         else:
             new_unchanged_files.add(file)
 
+    staging_files[FileState.MODIFIED.name] = list(new_modified_files)
+    staging_files[FileState.UNCHANGED.name] = list(new_unchanged_files)
+
 
 def _create_branch(name, parent_branch, parent_commit_id):
     branch_path = os.path.join(BRANCHES, name)
@@ -376,7 +372,7 @@ def _create_branch(name, parent_branch, parent_commit_id):
     # TODO: обновить staging_area текущей ветки
 
 
-def _create_commit(branch_name, commit_id, message, files: dict,
+def _create_commit(branch_name, commit_id, message, files: (dict, list),
                    parent_commit_id=None, parent_commit_branch=None):
     branch_log_path = os.path.join(BRANCHES_LOG, f"{branch_name}.json")
     branch_log_obj = ut.read_json_file(branch_log_path)
@@ -387,47 +383,39 @@ def _create_commit(branch_name, commit_id, message, files: dict,
         "branch": branch_name,
         "id": commit_id,
         "message": message,
-        "files": files
+        "files": files[0]
     }
     branch_log_obj["commits"][commit_id] = commit_info_obj
     branch_log_obj["head"] = commit_id
     ut.write_json_file(branch_log_path, branch_log_obj)
     commit_path = os.path.join(BRANCHES, branch_name, commit_id)
-    files_to_copy = [file for file, data in files.items()
-                     if Path(data[0]).parts[-2] == commit_id]
-    if files_to_copy:
-        os.makedirs(commit_path, exist_ok=True)
-        ut.copy_files(commit_path, files_to_copy)
+    os.makedirs(commit_path, exist_ok=True)
+    ut.copy_files(commit_path, files[1])
 
 
-def _get_files_for_commit(prev_files, staged_files,
-                          current_branch, commit_id):
-    files_to_copy = dict()
+def _get_commit_files(prev_files, staging_area, commit_id):
+    """Returns dict where key is file path in current directory
+    and value is list of two elements (file path in repository,
+    file hash) and also it returns list of files, which must be
+    copied"""
+    commit_files = dict()
+    staging_files = staging_area["staging_files"]
+    deleted_files = set(staging_files[FileState.DELETED.name])
+    modified_files = set(staging_files[FileState.MODIFIED.name])
+    added_files = set(staging_files[FileState.NEW.name])
+    files_to_copy = modified_files.union(added_files)
+
     if prev_files:
-        prev_files = {file: data for file, data in prev_files.items()
-                      if os.path.exists(file)}
-    deleted_files = {}
-    count_of_new_changes = 0
-    for file in staged_files:
-        if not os.path.exists(file):
-            deleted_files.add(file)
-            continue
+        commit_files = {file: data for file, data in prev_files.items()
+                        if file not in (deleted_files or modified_files)}
+
+    for file in files_to_copy:
         file_hash = ut.get_file_hash(file)
-        file_path = os.path.join(BRANCHES, current_branch,
+        file_path = os.path.join(BRANCHES, staging_area["current_branch"],
                                  commit_id, Path(file).name)
-        if file in prev_files.keys() and file_hash == prev_files[file][1]:
-            files_to_copy[file] = prev_files[file]
-        else:
-            files_to_copy[file] = [file_path, file_hash]
-            count_of_new_changes += 1
-    if count_of_new_changes == 0:
-        return dict(), deleted_files
+        commit_files[file] = [file_path, file_hash]
 
-    for file, file_data in prev_files.items():
-        if file not in files_to_copy.keys():
-            files_to_copy[file] = file_data
-
-    return files_to_copy, deleted_files
+    return commit_files, files_to_copy
 
 
 def _try_get_parent_commit(current_branch):
@@ -467,11 +455,10 @@ def _get_last_commit(current_branch):
 
 if __name__ == "__main__":
     # cli()
-    _init()
+    # _init()
+    # print("".join(_status()))
+    # _add(["1.txt", "2.txt"], True)
+    # print("".join(_status()))
+    # _add(["."], True)
+    _commit("first")
     print("".join(_status()))
-    _add(["1.txt", "2.txt"], True)
-    print("".join(_status()))
-    _add(["."], True)
-    print("".join(_status()))
-
-
