@@ -260,23 +260,25 @@ def _branch(branch_name, console_info=False):
 def _checkout(branch_name, console_info=False):
     """Switch to a different branch"""
     _check_repository_existence()
+
+    branch_log_path = os.path.join(BRANCHES_LOG, f"{branch_name}.json")
+    if not os.path.exists(branch_log_path):
+        raise exceptions.CheckoutException(f"Branch '{branch_name}' does not exist")
+
     staging_area = _update_staging_area()
-
-    branch_log_obj = os.path.join(BRANCHES_LOG, f"{branch_name}.json")
-    if not os.path.exists(branch_log_obj):
-        raise exceptions.CheckoutException(f"Branch '{branch_name}' does not exist.")
-
-    staged_files_obj = ut.read_json_file(STAGING_AREA)
-    if branch_name == staged_files_obj["current_branch"]:
+    if branch_name == staging_area["current_branch"]:
         raise exceptions.CheckoutException(f"You are already on branch '{branch_name}'")
 
+    _save_staging_area_state(staging_area)
+    st_area_path = os.path.join(BRANCHES, branch_name, "staging_area.json")
+    new_staging_area = ut.read_json_file(st_area_path)
+    ut.write_json_file(STAGING_AREA, new_staging_area)
+
     ignores = ut.read_json_file(GITIGNORE)
-    staged_files_obj["staging_files"] = []
-    staged_files_obj["current_branch"] = branch_name
-    ut.write_json_file(STAGING_AREA, staged_files_obj)
-    ut.delete_files(".", ignores)
+    ut.clear_directory(".", ignores)
     last_commit = _get_last_commit(branch_name)
-    ut.copy_files(".", [val[0] for key, val in last_commit["files"].items()])
+    ut.copy_files(".", [val[0] for _, val in last_commit["files"].items()])
+
     if console_info:
         click.echo(f"Switched to branch '{branch_name}'\n")
 
@@ -377,7 +379,6 @@ def _create_branch(name, parent_branch, parent_commit_id):
     os.makedirs(branch_path, exist_ok=True)
     with open(staging_area_path, "w"):
         pass
-    # TODO: обновить staging_area текущей ветки
 
 
 def _create_commit(branch_name, commit_id, message, files: (dict, list),
@@ -468,6 +469,7 @@ if __name__ == "__main__":
     # _add(["1.txt", "2.txt"], True)
     # print("".join(_status()))
     # _add(["."], True)
-    _commit("second")
     print("".join(_status()))
+    _commit("third")
+    _branch("aboba3")
     print("".join(_log()))

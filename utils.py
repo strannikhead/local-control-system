@@ -15,18 +15,6 @@ def write_json_file(path, data):
         json.dump(data, f, indent=4)
 
 
-def get_files(path, ignore):
-    dirs = [Path(path)]
-    while len(dirs) > 0:
-        p = dirs.pop()
-        for item in p.iterdir():
-            if _item_in_ignore(item, ignore):
-                continue
-            if item.is_dir():
-                dirs.append(item)
-            yield str(item)
-
-
 def _item_in_ignore(item, ignore_list):
     item = Path(item)
     name = item.name
@@ -52,15 +40,18 @@ def copy_files(copy_to, files_to_copy):
         shutil.copy2(Path(item), copy_to)
 
 
-def delete_files(directory, ignore):
-    dirs = [Path(directory)]
+def get_files(path, ignore):
+    dirs = [Path(path)]
     while len(dirs) > 0:
         p = dirs.pop()
         for item in p.iterdir():
-            if any(str(item).startswith(i) or item.name.startswith(i)
-                   for i in ignore):
+            if _item_in_ignore(item, ignore):
                 continue
             if item.is_dir():
                 dirs.append(item)
-            else:
-                os.remove(item)
+            yield str(item)
+
+
+def clear_directory(directory, ignore):
+    for item in get_files(directory, ignore):
+        os.remove(item)
