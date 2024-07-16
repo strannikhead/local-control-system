@@ -288,35 +288,29 @@ def _update_staging_area():
     ignore = ut.read_json_file(GITIGNORE)
     staging_files = staging_area["staging_files"]
 
-    staging_files[FileState.UNTRACKED.name] = []
     added_files = set(staging_files[FileState.NEW.name])
     unchanged_files = set(staging_files[FileState.UNCHANGED.name])
     modified_files = set(staging_files[FileState.MODIFIED.name])
-    deleted_files = set(staging_files[FileState.DELETED.name])
-
-    new_added_files = set()
-    new_unchanged_files = set()
-    new_modified_files = set()
+    staging_files[FileState.UNTRACKED.name] = []
+    staging_files[FileState.NEW.name] = []
+    staging_files[FileState.UNCHANGED.name] = []
+    staging_files[FileState.MODIFIED.name] = []
 
     for file in ut.get_files(CURRENT_DIR, ignore):
         if file in added_files:
-            new_added_files.add(file)
+            added_files.remove(file)
+            staging_files[FileState.NEW.name].append(file)
         elif file in unchanged_files:
-            new_unchanged_files.add(file)
+            unchanged_files.remove(file)
+            staging_files[FileState.UNCHANGED.name].append(file)
         elif file in modified_files:
-            new_modified_files.add(file)
+            modified_files.remove(file)
+            staging_files[FileState.MODIFIED.name].append(file)
         else:
             staging_files[FileState.UNTRACKED.name].append(file)
 
-    for file in unchanged_files.difference(new_unchanged_files):
-        deleted_files.add(file)
-    for file in modified_files.difference(new_modified_files):
-        deleted_files.add(file)
-
-    staging_files[FileState.DELETED.name] = list(deleted_files)
-    staging_files[FileState.NEW.name] = list(new_added_files)
-    staging_files[FileState.UNCHANGED.name] = list(new_unchanged_files)
-    staging_files[FileState.MODIFIED.name] = list(new_modified_files)
+    for file in unchanged_files.union(modified_files):
+        staging_files[FileState.DELETED.name].append(file)
 
     _update_changes(staging_area)
     ut.write_json_file(STAGING_AREA, staging_area)
@@ -455,10 +449,10 @@ def _get_last_commit(current_branch):
 
 if __name__ == "__main__":
     # cli()
-    # _init()
-    # print("".join(_status()))
-    # _add(["1.txt", "2.txt"], True)
-    # print("".join(_status()))
-    # _add(["."], True)
+    _init()
+    print("".join(_status()))
+    _add(["1.txt", "2.txt"], True)
+    print("".join(_status()))
+    _add(["."], True)
     _commit("first")
     print("".join(_status()))
