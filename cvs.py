@@ -147,11 +147,12 @@ def _add(files, console_info=False):
 def _reset(console_info=False):
     """Reset the staging area"""
     _check_repository_existence()
-    staging_area = _update_staging_area()
+    staging_area = ut.read_json_file(STAGING_AREA)
+    staging_files = staging_area["staging_files"]
+    for key in staging_files.keys():
+        staging_files[key] = []
 
-    staged_files_obj = ut.read_json_file(STAGING_AREA)
-    staged_files_obj["staging_files"] = []
-    ut.write_json_file(STAGING_AREA, staged_files_obj)
+    ut.write_json_file(STAGING_AREA, staging_area)
     if console_info:
         click.echo(f"Staging area was reset\n")
 
