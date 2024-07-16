@@ -235,19 +235,24 @@ def _log():
 def _branch(branch_name, console_info=False):
     """Create a new branch"""
     _check_repository_existence()
-    staging_area = _update_staging_area()
     if os.path.exists(os.path.join(BRANCHES, branch_name)):
-        raise exceptions.BranchException(
-            f"You can't create branch with name '{branch_name}', because it already exists")
+        raise exceptions.BranchException(f"You can't create branch with name "
+                                         f"'{branch_name}', because it already "
+                                         f"exists")
+    staging_area = _update_staging_area()
+    current_branch = staging_area["current_branch"]
+    branch_log_path = os.path.join(BRANCHES_LOG, f"{current_branch}.json")
+    branch_log_obj = ut.read_json_file(branch_log_path)
+    if not branch_log_obj["commits"]:
+        raise exceptions.BranchException(f"`There are no commits "
+                                         f"on branch '{current_branch}'")
 
-    staged_files_obj = ut.read_json_file(STAGING_AREA)
-    last_commit = _get_last_commit(staged_files_obj["current_branch"])
-    if not last_commit:
-        raise exceptions.BranchException(f"`There are no commits on branch '{staged_files_obj["current_branch"]}'")
-
+    last_commit = branch_log_obj["commits"][branch_log_obj["head"]]
     _create_branch(branch_name, last_commit["branch"], last_commit["id"])
-    staged_files_obj["current_branch"] = branch_name
-    ut.write_json_file(STAGING_AREA, staged_files_obj)
+
+    _save_staging_area_state(staging_area)
+    staging_area["current_branch"] = branch_name
+    ut.write_json_file(STAGING_AREA, staging_area)
     if console_info:
         click.echo(f"Branch '{branch_name}' was created\n")
 
@@ -282,6 +287,14 @@ def _checkout(branch_name, console_info=False):
 def _check_repository_existence():
     if not os.path.exists(MAIN_BRANCH):
         raise exceptions.RepositoryException("There is no initialized repository")
+
+
+def _save_staging_area_state(staging_area=None):
+    if not staging_area:
+        staging_area = ut.read_json_file(STAGING_AREA)
+    cur_branch = staging_area["current_branch"]
+    st_area_path = os.path.join(BRANCHES, cur_branch, "staging_area.json")
+    ut.write_json_file(st_area_path, staging_area)
 
 
 def _update_staging_area():
