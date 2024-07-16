@@ -31,7 +31,7 @@ def _item_in_ignore(item, ignore_list):
     item = Path(item)
     name = item.name
     if any(name.startswith(i) for i in ignore_list["START"]):
-        return False
+        return True
     if item.is_dir():
         return name in ignore_list["DIRECTORIES"]
     suffix = item.suffix

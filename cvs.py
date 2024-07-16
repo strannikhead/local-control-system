@@ -196,6 +196,21 @@ def _commit(message, console_info=False):
         click.echo(f"Changes were commited with message: {message}")
 
 
+def _status():
+    _check_repository_existence()
+    staging_area = _update_staging_area()
+    staging_files = staging_area["staging_files"]
+    status_list = [f"Current branch is '{staging_area["current_branch"]}'"]
+    status_list.append("\n")
+    for key, files in staging_files.items():
+        if files:
+            status_list.append(f"{key} FILES:")
+            for file in files:
+                status_list.append(f"- {file}")
+            status_list.append("\n")
+    return status_list
+
+
 def _log():
     """Display commit history"""
     _check_repository_existence()
@@ -318,8 +333,11 @@ def _update_changes(staging_area=None):
     if not staging_area:
         staging_area = ut.read_json_file(STAGING_AREA)
     staging_files = staging_area["staging_files"]
-    prev_files = _get_last_commit(staging_area["current_branch"])["files"]
+    prev_commit = _get_last_commit(staging_area["current_branch"])
+    if not prev_commit:
+        return
 
+    prev_files = prev_commit["files"]
     new_unchanged_files = set()
     new_modified_files = set()
 
@@ -475,3 +493,8 @@ def _get_last_commit(current_branch):
 if __name__ == "__main__":
     # cli()
     _init()
+    print(_status())
+    _add(["123.txt"], True)
+    print(_status())
+
+
