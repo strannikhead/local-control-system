@@ -210,14 +210,13 @@ def _status():
 def _log():
     """Display commit history"""
     _check_repository_existence()
-    staging_area = _update_staging_area()
-
-    click.echo("Commit History:")
+    _update_staging_area()
+    log_list = ["Commit History:\n"]
     log_path = Path(BRANCHES_LOG)
     for branch_log_file in log_path.iterdir():
-        p = os.path.join(BRANCHES_LOG, branch_log_file.name)
-        branch_log_obj = ut.read_json_file(p)
-        click.echo(f"- {branch_log_obj['branch']}")
+        path = os.path.join(BRANCHES_LOG, branch_log_file.name)
+        branch_log_obj = ut.read_json_file(path)
+        log_list.append(f"- {branch_log_obj['branch']}\n")
         dummy = branch_log_obj['head']
         if not dummy:
             continue
@@ -225,10 +224,12 @@ def _log():
         while True:
             date = time.strptime(commits[dummy]["time"])
             str_date = f"{date.tm_mon:0>2}.{date.tm_mday:0>2}.{date.tm_year}"
-            click.echo(f" - {str_date} {dummy} '{commits[dummy]["message"]}'")
+            message = commits[dummy]["message"]
+            log_list.append(f" - {str_date} {dummy} '{message}'\n")
             if commits[dummy]["parent_commit_branch"] != branch_log_file.stem:
                 break
             dummy = commits[dummy]["parent_commit_id"]
+    return log_list
 
 
 def _branch(branch_name, console_info=False):
@@ -449,10 +450,11 @@ def _get_last_commit(current_branch):
 
 if __name__ == "__main__":
     # cli()
-    _init()
+    # _init()
+    # print("".join(_status()))
+    # _add(["1.txt", "2.txt"], True)
+    # print("".join(_status()))
+    # _add(["."], True)
+    _commit("second")
     print("".join(_status()))
-    _add(["1.txt", "2.txt"], True)
-    print("".join(_status()))
-    _add(["."], True)
-    _commit("first")
-    print("".join(_status()))
+    print("".join(_log()))
