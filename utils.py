@@ -65,6 +65,10 @@ def clear_directory(directory, ignore):
                 continue
             os.remove(item)
         ind += 1
-    for i in range(len(dirs) - 1, -1, -1):
-        if not dirs[i].iterdir():
+    for i in range(len(dirs) - 1, 0, -1):
+        delete = True
+        for _ in dirs[i].iterdir():
+            delete = False
+            break
+        if delete:
             os.rmdir(dirs[i])

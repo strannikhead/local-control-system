@@ -473,7 +473,7 @@ def _get_last_commit(current_branch):
 
 if __name__ == "__main__":
     # cli()
-    # _init()
+    _init()
     # _add(["."])
     # _commit("third")
     # _branch("aboba1")
@@ -481,7 +481,5 @@ if __name__ == "__main__":
     # _checkout("main")
     # _checkout("aboba1")
     # print("".join(_status()))
-    ignores = ut.read_json_file(GITIGNORE)
-    ut.clear_directory(".", ignores)
 
 
