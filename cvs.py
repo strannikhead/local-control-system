@@ -22,7 +22,7 @@ class FileState(Enum):
     DELETED = 5
 
 
-#region Click
+# region Click
 
 @click.group()
 def cli():
@@ -75,9 +75,9 @@ def checkout(branch_name):
     _checkout(branch_name, console_info=True)
 
 
-#endregion
+# endregion
 
-#region Base
+# region Base
 
 
 def _init(console_info=False):
@@ -283,8 +283,9 @@ def _checkout(branch_name, console_info=False):
         click.echo(f"Switched to branch '{branch_name}'\n")
 
 
-#endregion
+# endregion
 
+# region Utils
 
 def _check_repository_existence():
     if not os.path.exists(MAIN_BRANCH):
@@ -460,6 +461,8 @@ def _get_last_commit(current_branch):
         if parent_commit in branch_log_obj["commits"].keys():
             return branch_log_obj["commits"][parent_commit]
     return None
+
+# endregion
 
 
 if __name__ == "__main__":
