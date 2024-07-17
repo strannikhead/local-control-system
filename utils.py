@@ -49,9 +49,22 @@ def get_files(path, ignore):
                 continue
             if item.is_dir():
                 dirs.append(item)
+                continue
             yield str(item)
 
 
 def clear_directory(directory, ignore):
-    for item in get_files(directory, ignore):
-        os.remove(item)
+    dirs = [Path(directory)]
+    ind = 0
+    while ind < len(dirs):
+        for item in dirs[ind].iterdir():
+            if _item_in_ignore(item, ignore):
+                continue
+            if item.is_dir():
+                dirs.append(item)
+                continue
+            os.remove(item)
+        ind += 1
+    for i in range(len(dirs) - 1, -1, -1):
+        if not dirs[i].iterdir():
+            os.rmdir(dirs[i])

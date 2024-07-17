@@ -269,6 +269,12 @@ def _checkout(branch_name, console_info=False):
     if branch_name == staging_area["current_branch"]:
         raise exceptions.CheckoutException(f"You are already on branch '{branch_name}'")
 
+    staging_files = staging_area["staging_files"]
+    if (staging_files[FileState.NEW.name] or staging_files[FileState.DELETED.name]
+            or staging_files[FileState.MODIFIED.name]):
+        raise exceptions.CheckoutException(f"You have uncommited changes. "
+                                           f"Commit them before checkout")
+
     _save_staging_area_state(staging_area)
     st_area_path = os.path.join(BRANCHES, branch_name, "staging_area.json")
     new_staging_area = ut.read_json_file(st_area_path)
@@ -468,11 +474,14 @@ def _get_last_commit(current_branch):
 if __name__ == "__main__":
     # cli()
     # _init()
+    # _add(["."])
+    # _commit("third")
+    # _branch("aboba1")
+    # _commit("dadad")
+    # _checkout("main")
+    # _checkout("aboba1")
     # print("".join(_status()))
-    # _add(["1.txt", "2.txt"], True)
-    # print("".join(_status()))
-    # _add(["."], True)
-    print("".join(_status()))
-    _commit("third")
-    _branch("aboba3")
-    print("".join(_log()))
+    ignores = ut.read_json_file(GITIGNORE)
+    ut.clear_directory(".", ignores)
+
+
