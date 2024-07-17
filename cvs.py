@@ -478,14 +478,7 @@ def _get_last_commit(current_branch):
 
 
 if __name__ == "__main__":
-    # cli()
-    _init()
-    # _add(["."])
-    # _commit("third")
-    # _branch("aboba1")
-    # _commit("dadad")
-    # _checkout("main")
-    # _checkout("aboba1")
-    # print("".join(_status()))
+    cli()
+
 
 
