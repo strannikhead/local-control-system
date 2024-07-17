@@ -45,7 +45,7 @@ def add(files):
 @cli.command()
 def reset():
     """Reset the staging area"""
-    _reset()
+    _reset(console_info=True)
 
 
 @cli.command()
@@ -56,9 +56,15 @@ def commit(message):
 
 
 @cli.command()
+def status():
+    """Display commit history"""
+    click.echo("".join(_status()))
+
+
+@cli.command()
 def log():
     """Display commit history"""
-    _log()
+    click.echo("".join(_log()))
 
 
 @cli.command()
