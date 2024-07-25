@@ -1,20 +1,66 @@
 import os
+import random
+import string
+
 import pytest
+
 import cvs
+import exceptions
 
 
-@pytest.fixture
-def vcs_initialized():
-    # Initialize a VCS repository
-    cvs.init()
+class TestInitCommand:
+    @pytest.fixture(scope='function', autouse=True)
+    def vcs_initialized(self, tmp_path):
+        temp = tmp_path
+        print(temp)
+        cvs.MAIN_BRANCH = f"{temp}/.cvs/branches/main"
+        cvs.BRANCHES = f"{temp}/.cvs/branches"
+        cvs.BRANCHES_LOG = f"{temp}/.cvs/branches_log"
+        cvs.STAGING_AREA = f"{temp}/.cvs/staging_area.json"
+        cvs.GITIGNORE = f"{temp}/.cvs/cvsignore.json"
+        cvs.CURRENT_DIR = f"{temp}"
+
+    def test_init(self, tmp_path, capsys):
+        # Check if the .vcs directory is created
+        cvs._init(console_info=True)
+        captured = capsys.readouterr()
+        assert os.path.exists(os.path.join(cvs.MAIN_BRANCH))
+        assert os.path.exists(os.path.join(cvs.STAGING_AREA))
+        assert os.path.exists(os.path.join(cvs.GITIGNORE))
+        assert 'Repository was initialized' in captured.out
+
+    def test_already_init(self):
+        cvs._init()
+        with pytest.raises(exceptions.RepositoryException):
+            cvs._init()
 
 
-def test_init():
-    # Check if the .vcs directory is created
-    assert os.path.exists(os.path.join(cvs.MAIN_BRANCH))
-    assert os.path.exists(os.path.join(cvs.STAGING_AREA))
-    assert os.path.exists(os.path.join(cvs.GITIGNORE))
+class TestAddCommand:
+    pass
 
+
+class TestResetCommand:
+    pass
+
+
+class TestCommitCommand:
+    pass
+
+
+class TestStatusCommand:
+    pass
+
+
+class TestLogCommand:
+    pass
+
+
+class TestBranchCommand:
+    pass
+
+
+class TestCheckoutCommand:
+    pass
 
 # def test_add_commit_reset(vcs_initialized):
 #     # Create test files

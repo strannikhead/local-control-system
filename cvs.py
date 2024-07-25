@@ -106,7 +106,7 @@ def _init(console_info=False):
         gitignore_obj = {
             "START": [".", "_"],
             "FORMATS": [".md"],
-            "FILES": ["cvs.py", "cvs_tests.py", "utils.py", "setup.py",
+            "FILES": ["cvs.py", "cvs_test.py", "utils.py", "setup.py",
                       "requirements.txt", "exceptions.py"],
             "DIRECTORIES": ["venv"]
         }
@@ -204,7 +204,7 @@ def _status():
     _check_repository_existence()
     staging_area = _update_staging_area()
     staging_files = staging_area["staging_files"]
-    status_list = [f"Current branch is '{staging_area["current_branch"]}'\n"]
+    status_list = [f"Current branch is '{staging_area['current_branch']}'\n"]
     for key, files in staging_files.items():
         if files:
             status_list.append(f"{key} FILES:\n")
@@ -468,7 +468,7 @@ def _get_last_commit(current_branch):
         return branch_log_obj["commits"][branch_log_obj["head"]]
     elif branch_log_obj["parent_branch"] and branch_log_obj["parent_commit_id"]:
         parent_commit = branch_log_obj["parent_commit_id"]
-        branch_log_path = os.path.join(BRANCHES_LOG, f"{branch_log_obj["parent_branch"]}.json")
+        branch_log_path = os.path.join(BRANCHES_LOG, f"{branch_log_obj['parent_branch']}.json")  # TODO - ругался на скобки, фикс надо проверить
         branch_log_obj = ut.read_json_file(branch_log_path)
         if parent_commit in branch_log_obj["commits"].keys():
             return branch_log_obj["commits"][parent_commit]
