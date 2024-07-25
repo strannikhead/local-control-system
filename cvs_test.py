@@ -1,16 +1,14 @@
 import os
-import random
-import string
-
+import utils as ut
 import pytest
 
 import cvs
 import exceptions
 
 
-class TestInitCommand:
+class InitDirs:
     @pytest.fixture(scope='function', autouse=True)
-    def vcs_initialized(self, tmp_path):
+    def test_setup(self, tmp_path):
         temp = tmp_path
         print(temp)
         cvs.MAIN_BRANCH = f"{temp}/.cvs/branches/main"
@@ -20,7 +18,15 @@ class TestInitCommand:
         cvs.GITIGNORE = f"{temp}/.cvs/cvsignore.json"
         cvs.CURRENT_DIR = f"{temp}"
 
-    def test_init(self, tmp_path, capsys):
+
+class TestAdditionalFuncs:
+    def test_rep_existence(self):
+        with pytest.raises(exceptions.RepositoryException):
+            cvs._check_repository_existence()
+
+class TestInitCommand(InitDirs):
+
+    def test_init(self, capsys):
         # Check if the .vcs directory is created
         cvs._init(console_info=True)
         captured = capsys.readouterr()
@@ -30,17 +36,61 @@ class TestInitCommand:
         assert 'Repository was initialized' in captured.out
 
     def test_already_init(self):
-        cvs._init()
+        cvs._init(console_info=True)
         with pytest.raises(exceptions.RepositoryException):
             cvs._init()
 
 
-class TestAddCommand:
-    pass
+class TestAddCommand(InitDirs):
+    def test_add_no_files(self, capsys):
+        cvs._init()
+        cvs._add([], console_info=True)
+        captured = capsys.readouterr()
+        assert "There are not any files to add\n" in captured.out
+
+    def test_add_all_files(self, capsys):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
+        assert os.path.exists(f'{cvs.CURRENT_DIR}/test1.txt')
+        assert os.path.exists(f'{cvs.CURRENT_DIR}/test2.txt')
+        cvs._add(['.'], console_info=True)
+        captured = capsys.readouterr()
+        staging_area = ut.read_json_file(cvs.STAGING_AREA)
+        assert not staging_area['staging_files'][cvs.FileState.UNTRACKED.name]
+        assert f'{cvs.CURRENT_DIR}/test1.txt' in staging_area['staging_files'][cvs.FileState.NEW.name]
+        assert f'{cvs.CURRENT_DIR}/test2.txt' in staging_area['staging_files'][cvs.FileState.NEW.name]
+        assert f"Added 2 file(s) to staging area: {cvs.CURRENT_DIR}/test1.txt, {cvs.CURRENT_DIR}/test2.txt" in captured.out
 
 
-class TestResetCommand:
-    pass
+    def test_add_one_file(self, capsys):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'], console_info=True)
+        staging_area = ut.read_json_file(cvs.STAGING_AREA)
+        assert f'{cvs.CURRENT_DIR}/test1.txt' in staging_area['staging_files'][cvs.FileState.NEW.name]
+        
+    def test_add_non_existent_file(self, capsys):
+        cvs._init()
+        with pytest.raises(exceptions.AddException):
+            cvs._add([f'not_exist.txt'], console_info=True)
+
+
+class TestResetCommand(InitDirs):
+    def test_reset(self, capsys):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test.txt'])
+        staging_area = ut.read_json_file(cvs.STAGING_AREA)
+        assert f'{cvs.CURRENT_DIR}/test.txt' in staging_area['staging_files'][cvs.FileState.NEW.name]
+        cvs._reset(console_info=True)
+        captured = capsys.readouterr()
+        staging_files = ut.read_json_file(cvs.STAGING_AREA)["staging_files"]
+        for key in staging_files.keys():
+            assert not staging_files[key]
+        assert "Staging area was reset\n" in captured.out
+
 
 
 class TestCommitCommand:

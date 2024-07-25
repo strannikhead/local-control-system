@@ -468,17 +468,16 @@ def _get_last_commit(current_branch):
         return branch_log_obj["commits"][branch_log_obj["head"]]
     elif branch_log_obj["parent_branch"] and branch_log_obj["parent_commit_id"]:
         parent_commit = branch_log_obj["parent_commit_id"]
-        branch_log_path = os.path.join(BRANCHES_LOG, f"{branch_log_obj['parent_branch']}.json")  # TODO - ругался на скобки, фикс надо проверить
+        branch_log_path = os.path.join(BRANCHES_LOG,
+                                       f"{branch_log_obj['parent_branch']}.json")  # TODO - ругался на скобки, фикс надо проверить
         branch_log_obj = ut.read_json_file(branch_log_path)
         if parent_commit in branch_log_obj["commits"].keys():
             return branch_log_obj["commits"][parent_commit]
     return None
+
 
 # endregion
 
 
 if __name__ == "__main__":
     cli()
-
-
-
