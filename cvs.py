@@ -56,6 +56,13 @@ def commit(message):
 
 
 @cli.command()
+@click.argument("commit_id", 'message')
+def change_commit_message(commit_id, message):
+    """Commit changes to the repository"""
+    _change_commit_message(commit_id, message, console_info=True)
+
+
+@cli.command()
 def status():
     """Display commit history"""
     click.echo("".join(_status()))
@@ -198,6 +205,20 @@ def _commit(message, console_info=False):
 
     if console_info:
         click.echo(f"Changes were commited with message: {message}\n")
+
+
+def _change_commit_message(commit_id, message, console_info=False):
+    success = False
+    for file in Path(BRANCHES_LOG).iterdir():
+        branch_log = ut.read_json_file(file)
+        if commit_id in branch_log['commits']:
+            success = True
+            branch_log['commits'][commit_id]["message"] = message
+            ut.write_json_file(file, branch_log)
+    if not success:
+        raise FileNotFoundError(f"There is no commit with id '{commit_id}'")
+    if console_info:
+        click.echo(f"Commit message was changed")
 
 
 def _status():
@@ -478,7 +499,11 @@ def _get_last_commit(current_branch):
 
 
 if __name__ == "__main__":
-    cli()
+    # cli()
+    # _add(["."])
+    # _commit("abboba")
+    _change_commit_message("1721896406638", "dadadada")
+    # print("".join(_log()))
 
 
 
