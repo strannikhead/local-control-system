@@ -55,11 +55,11 @@ def commit(message):
     _commit(message, console_info=True)
 
 
-@cli.command()
-@click.argument("commit_id", 'message')
-def change_commit_message(commit_id, message):
-    """Commit changes to the repository"""
-    _change_commit_message(commit_id, message, console_info=True)
+# @cli.command()
+# @click.argument("commit_id", 'message')
+# def change_commit_message(commit_id, message):
+#     """Commit changes to the repository"""
+#     _change_commit_message(commit_id, message, console_info=True)
 
 
 @cli.command()
@@ -311,6 +311,7 @@ def _checkout(branch_name, console_info=False):
     ut.write_json_file(STAGING_AREA, new_staging_area)
 
     ignores = ut.read_json_file(GITIGNORE)
+    ignores["FILES"] += staging_files[FileState.UNTRACKED.name]
     ut.clear_directory(".", ignores)
     last_commit = _get_last_commit(branch_name)
     ut.copy_files(".", [val[0] for _, val in last_commit["files"].items()
@@ -340,12 +341,12 @@ def _cherry_pick(commit_id, console_info=False):
     commit_files = last_commit["files"]
     files_to_copy = []
     files_to_delete = []
-    for file, info in commit_log["files"]:
+    for file, info in commit_log["files"].items():
         if (info[2] == FileState.MODIFIED.name and file in commit_files
                 or info[2] == FileState.NEW.name):
             commit_files[file] = info
             files_to_copy.append(info[0])
-        if info[2] == FileState.DELETED.name and file in commit_files:
+        elif info[2] == FileState.DELETED.name and file in commit_files:
             commit_files.remove(file)
             files_to_delete.append(file)
 
@@ -504,6 +505,7 @@ def _get_commit_files(prev_files, staging_area, commit_id):
             if data[2] == FileState.DELETED.name:
                 continue
             data[2] = FileState.UNCHANGED.name
+            commit_files[file] = data
 
     for file in files_to_copy:
         file_hash = ut.get_file_hash(file)
@@ -554,8 +556,18 @@ def _get_last_commit(current_branch):
 
 
 if __name__ == "__main__":
-    # cli()
-    # _add(["."])
-    # _commit("abboba")
-    _change_commit_message("1721896406638", "dadadada")
+    cli()
+    # _init()
+    # _add(["1.txt"])
+    # print("".join(_status()))
+    # _commit("first")
     # print("".join(_log()))
+    # _branch("aboba")
+    # _add(["2.txt"])
+    # print("".join(_status()))
+
+    # _commit("second")
+    # print("".join(_log()))
+    # _checkout("main")
+    # print("".join(_log()))
+    # _cherry_pick("1721914435457")
