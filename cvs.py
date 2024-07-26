@@ -55,11 +55,12 @@ def commit(message):
     _commit(message, console_info=True)
 
 
-# @cli.command()
-# @click.argument("commit_id", 'message')
-# def change_commit_message(commit_id, message):
-#     """Commit changes to the repository"""
-#     _change_commit_message(commit_id, message, console_info=True)
+@cli.command(name='update-message')
+@click.argument('commit_id')
+@click.argument('message')
+def change_commit_message(commit_id, message):
+    """Changes commit message"""
+    _change_commit_message(commit_id, message, console_info=True)
 
 
 @cli.command()
@@ -86,6 +87,13 @@ def branch(branch_name):
 def checkout(branch_name):
     """Switch to a different branch"""
     _checkout(branch_name, console_info=True)
+
+
+@cli.command(name='cherry-pick')
+@click.argument('commit_id')
+def cherry_pick(commit_id):
+    """Applies a commit to the current branch"""
+    cherry_pick(commit_id, console_info=True)
 
 
 # endregion
