@@ -19,10 +19,11 @@ class InitDirs:
         cvs.CURRENT_DIR = f"{temp}"
 
 
-class TestAdditionalFuncs:
+class TestAdditionalFunctions:
     def test_rep_existence(self):
         with pytest.raises(exceptions.RepositoryException):
             cvs._check_repository_existence()
+
 
 class TestInitCommand(InitDirs):
 
@@ -62,7 +63,6 @@ class TestAddCommand(InitDirs):
         assert f'{cvs.CURRENT_DIR}/test2.txt' in staging_area['staging_files'][cvs.FileState.NEW.name]
         assert f"Added 2 file(s) to staging area: {cvs.CURRENT_DIR}/test1.txt, {cvs.CURRENT_DIR}/test2.txt" in captured.out
 
-
     def test_add_one_file(self, capsys):
         cvs._init()
         open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
@@ -70,7 +70,7 @@ class TestAddCommand(InitDirs):
         cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'], console_info=True)
         staging_area = ut.read_json_file(cvs.STAGING_AREA)
         assert f'{cvs.CURRENT_DIR}/test1.txt' in staging_area['staging_files'][cvs.FileState.NEW.name]
-        
+
     def test_add_non_existent_file(self, capsys):
         cvs._init()
         with pytest.raises(exceptions.AddException):
@@ -92,13 +92,48 @@ class TestResetCommand(InitDirs):
         assert "Staging area was reset\n" in captured.out
 
 
+class TestCommitCommand(InitDirs):
+    def test_empty_commit(self):
+        cvs._init()
+        with pytest.raises(exceptions.CommitException):
+            cvs._commit('empty commit')
 
-class TestCommitCommand:
-    pass
+    def test_commit(self, capsys):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt', f'{cvs.CURRENT_DIR}/test2.txt'])
+        commit_message = 'commit test'
+        cvs._commit(commit_message, console_info=True)
+        captured = capsys.readouterr()
+        staging_area = ut.read_json_file(cvs.STAGING_AREA)
+        staging_files = staging_area["staging_files"]
+        assert not staging_files[cvs.FileState.DELETED.name]
+        assert not staging_files[cvs.FileState.MODIFIED.name]
+        assert not staging_files[cvs.FileState.NEW.name]
+        assert f'{cvs.CURRENT_DIR}/test1.txt' in staging_files[cvs.FileState.UNCHANGED.name]
+        assert f'{cvs.CURRENT_DIR}/test2.txt' in staging_files[cvs.FileState.UNCHANGED.name]
+        assert f"Changes were commited with message: {commit_message}\n" in captured.out
+
+    def test_many_commits(self, capsys):
 
 
-class TestStatusCommand:
-    pass
+class TestStatusCommand(InitDirs):
+    def test_status(self):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._commit('commit')
+        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        status = cvs._status()
+        staging_area = ut.read_json_file(cvs.STAGING_AREA)
+        staging_files = staging_area["staging_files"]
+        assert ["Current branch is 'main'\n",
+                'NEW FILES:\n',
+                f'- {cvs.CURRENT_DIR}/test2.txt\n',
+                'UNCHANGED FILES:\n',
+                f"- {cvs.CURRENT_DIR}/test1.txt\n"] == status
 
 
 class TestLogCommand:
