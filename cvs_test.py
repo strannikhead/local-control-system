@@ -21,7 +21,7 @@ class InitDirs:
         cvs.CURRENT_DIR = f"{temp}"
 
 
-class TestAdditionalFunctions:
+class TestAdditionalFunctions():
     def test_rep_existence(self):
         with pytest.raises(exceptions.RepositoryException):
             cvs._check_repository_existence()
@@ -209,7 +209,6 @@ class TestBranchCommand(InitDirs):
         assert f"Branch 'second_branch' was created\n" in captured.out
 
 
-
 class TestCheckoutCommand(InitDirs):
     def test_checkout_on_non_existent_branch(self):
         cvs._init()
@@ -239,16 +238,11 @@ class TestCheckoutCommand(InitDirs):
         cvs._commit('commit1')
         cvs._branch("second_branch")
         with open(f'{cvs.CURRENT_DIR}/test1.txt', 'w') as f:
-            f.write("test string\n")
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+            f.write("test string")
         cvs._commit('commit2')
         cvs._checkout("main")
-        with open(f'{cvs.CURRENT_DIR}/test2.txt', 'r') as f:
-            for line in f.readlines():
-                if "test string" in line:
-                    assert False
-            else:
-                assert True
+        with open(f'{cvs.CURRENT_DIR}/test1.txt', 'r') as f:
+            assert not f.readlines()
 
     def test_checkout(self, capsys):
         cvs._init()
@@ -270,4 +264,73 @@ class TestCheckoutCommand(InitDirs):
         assert "Switched to branch 'main'" in captured.out
 
 
+class TestUpdateMessageCommand(InitDirs):
+    def test_update_message(self, capsys):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._commit('commit1')
+        current_branch = ut.read_json_file(os.path.join(cvs.BRANCHES_LOG, 'main.json'))
+        commit_id = list(current_branch['commits'].keys())[0]
+        cvs._change_commit_message(commit_id, 'new_message', console_info=True)
+        captured = capsys.readouterr()
+        current_branch = ut.read_json_file(os.path.join(cvs.BRANCHES_LOG, 'main.json'))
+        assert current_branch['commits'][commit_id]['message'] == 'new_message'
+        assert "Commit message was changed" in captured.out
+
+    def test_update_non_existing_commit(self):
+        cvs._init()
+        with pytest.raises(FileNotFoundError):
+            cvs._change_commit_message('non_existing_commit', 'new_message')
+
+
+
+class TestCherryPickCommand(InitDirs):
+    def test_cherry_pick(self, capsys):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        with open(f'{cvs.CURRENT_DIR}/test1.txt', 'w') as f:
+            f.write("test string1")
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._commit('commit1')
+        current_branch = ut.read_json_file(os.path.join(cvs.BRANCHES_LOG, 'main.json'))
+        commit_id1 = list(current_branch['commits'].keys())[0]
+        with open(f'{cvs.CURRENT_DIR}/test1.txt', 'w') as f:
+            f.write("test string2")
+        cvs._commit('commit2')
+        cvs._branch("second_branch")
+        cvs._cherry_pick(commit_id1, console_info=True)
+        captured = capsys.readouterr()
+        with open(f'{cvs.CURRENT_DIR}/test1.txt', 'r') as f:
+            assert f.readlines() == ["test string1"]
+        assert "Cherry pick was made successfully" in captured.out
+
+    def test_cherry_pick_last_commit(self):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._commit('commit1')
+        current_branch = ut.read_json_file(os.path.join(cvs.BRANCHES_LOG, 'main.json'))
+        commit_id1 = list(current_branch['commits'].keys())[0]
+        with pytest.raises(exceptions.CherryPickException):
+            cvs._cherry_pick(commit_id1)
+
+    def test_cherry_pick_non_existing_commit(self):
+        cvs._init()
+        with pytest.raises(FileNotFoundError):
+            cvs._cherry_pick('non_existing_commit')
+
+    def test_cherry_pick_commit_with_deleted_files(self):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        cvs._commit('commit1')
+        current_branch = ut.read_json_file(os.path.join(cvs.BRANCHES_LOG, 'main.json'))
+        commit_id1 = list(current_branch['commits'].keys())[0]
+        os.remove(f'{cvs.CURRENT_DIR}/test2.txt')
+        cvs._commit('commit2')
+        cvs._cherry_pick(commit_id1)
+        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test2.txt'))
 

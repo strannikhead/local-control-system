@@ -55,6 +55,14 @@ def commit(message):
     _commit(message, console_info=True)
 
 
+@cli.command(name='update-message')
+@click.argument('commit_id')
+@click.argument('message')
+def change_commit_message(commit_id, message):
+    """Changes commit message"""
+    _change_commit_message(commit_id, message, console_info=True)
+
+
 @cli.command()
 def status():
     """Display commit history"""
@@ -79,6 +87,13 @@ def branch(branch_name):
 def checkout(branch_name):
     """Switch to a different branch"""
     _checkout(branch_name, console_info=True)
+
+
+@cli.command(name='cherry-pick')
+@click.argument('commit_id')
+def cherry_pick(commit_id):
+    """Applies a commit to the current branch"""
+    _cherry_pick(commit_id, console_info=True)
 
 
 # endregion
@@ -184,7 +199,7 @@ def _commit(message, console_info=False):
         parent_commit_branch = last_commit["branch"]
         prev_files = last_commit['files']
 
-    commit_files_data = _get_commit_files(prev_files, staging_area, commit_id)
+    commit_files, files_to_copy = _get_commit_files(prev_files, staging_area, commit_id)
 
     staging_files[FileState.UNCHANGED.name] += staging_files[FileState.NEW.name]
     staging_files[FileState.UNCHANGED.name] += staging_files[FileState.MODIFIED.name]
@@ -193,11 +208,28 @@ def _commit(message, console_info=False):
     staging_files[FileState.NEW.name] = []
 
     ut.write_json_file(STAGING_AREA, staging_area)
-    _create_commit(staging_area["current_branch"], commit_id, message,
-                   commit_files_data, parent_commit_id, parent_commit_branch)
-
+    commit_path = _create_commit(staging_area["current_branch"], commit_id,
+                                 message, commit_files, parent_commit_id,
+                                 parent_commit_branch)
+    ut.copy_files(commit_path, files_to_copy)
     if console_info:
         click.echo(f"Changes were commited with message: {message}\n")
+
+
+def _change_commit_message(commit_id, message, console_info=False):
+    _check_repository_existence()
+    _update_staging_area()
+    success = False
+    for file in Path(BRANCHES_LOG).iterdir():
+        branch_log = ut.read_json_file(file)
+        if commit_id in branch_log['commits']:
+            success = True
+            branch_log['commits'][commit_id]["message"] = message
+            ut.write_json_file(file, branch_log)
+    if not success:
+        raise FileNotFoundError(f"There is no commit with id '{commit_id}'")
+    if console_info:
+        click.echo(f"Commit message was changed")
 
 
 def _status():
@@ -287,12 +319,63 @@ def _checkout(branch_name, console_info=False):
     ut.write_json_file(STAGING_AREA, new_staging_area)
 
     ignores = ut.read_json_file(GITIGNORE)
-    ut.clear_directory(".", ignores)
+    ignores["FILES"] += staging_files[FileState.UNTRACKED.name]
+    ut.clear_directory(CURRENT_DIR, ignores)
     last_commit = _get_last_commit(branch_name)
-    ut.copy_files(".", [val[0] for _, val in last_commit["files"].items()])
+    ut.copy_files(CURRENT_DIR, [val[0] for _, val in last_commit["files"].items()
+                        if val[2] != FileState.DELETED.name])
 
     if console_info:
         click.echo(f"Switched to branch '{branch_name}'\n")
+
+
+def _cherry_pick(commit_id, console_info=False):
+    _check_repository_existence()
+    staging_area = _update_staging_area()
+    commit_log = None
+    success = False
+    for file in Path(BRANCHES_LOG).iterdir():
+        branch_log = ut.read_json_file(file)
+        if commit_id in branch_log['commits']:
+            success = True
+            commit_log = branch_log['commits'][commit_id]
+            break
+    if not success:
+        raise FileNotFoundError(f"There is no commit with id '{commit_id}'")
+    last_commit = _get_last_commit(staging_area["current_branch"])
+    if last_commit["id"] == commit_id:
+        raise exceptions.CherryPickException(f"You can not cherry pick current commit")
+    commit_id = str(time.time() * 1000)[:13]
+    commit_files = {key: [val[0], val[1], FileState.UNCHANGED.name]
+                    for key, val in last_commit["files"].items()}
+    files_to_copy = []
+    unchanged = set(staging_area["staging_files"][FileState.UNCHANGED.name])
+    for file, info in commit_log["files"].items():
+        if (info[2] == FileState.MODIFIED.name and file in commit_files
+                or info[2] == FileState.NEW.name):
+            commit_files[file] = info
+            files_to_copy.append(info[0])
+            unchanged.add(file)
+        elif info[2] == FileState.DELETED.name and file in commit_files:
+            commit_files[file][2] = FileState.DELETED.name
+            os.remove(file)
+            if file in unchanged:
+                unchanged.remove(file)
+
+    staging_area["staging_files"][FileState.UNCHANGED.name] = list(unchanged)
+    staging_area["staging_files"][FileState.DELETED.name] = []
+    staging_area["staging_files"][FileState.MODIFIED.name] = []
+    staging_area["staging_files"][FileState.UNTRACKED.name] = []
+    staging_area["staging_files"][FileState.NEW.name] = []
+
+    ut.write_json_file(STAGING_AREA, staging_area)
+    _create_commit(staging_area["current_branch"], commit_id,
+                   commit_log["message"], commit_files,
+                   last_commit["id"], last_commit["branch"])
+    ut.copy_files(CURRENT_DIR, files_to_copy)
+
+    if console_info:
+        click.echo(f"Cherry pick was made successfully")
 
 
 # endregion
@@ -394,7 +477,7 @@ def _create_branch(name, parent_branch, parent_commit_id):
         pass
 
 
-def _create_commit(branch_name, commit_id, message, files: (dict, list),
+def _create_commit(branch_name, commit_id, message, files,
                    parent_commit_id=None, parent_commit_branch=None):
     branch_log_path = os.path.join(BRANCHES_LOG, f"{branch_name}.json")
     branch_log_obj = ut.read_json_file(branch_log_path)
@@ -405,20 +488,20 @@ def _create_commit(branch_name, commit_id, message, files: (dict, list),
         "branch": branch_name,
         "id": commit_id,
         "message": message,
-        "files": files[0]
+        "files": files
     }
     branch_log_obj["commits"][commit_id] = commit_info_obj
     branch_log_obj["head"] = commit_id
     ut.write_json_file(branch_log_path, branch_log_obj)
     commit_path = os.path.join(BRANCHES, branch_name, commit_id)
     os.makedirs(commit_path, exist_ok=True)
-    ut.copy_files(commit_path, files[1])
+    return commit_path
 
 
 def _get_commit_files(prev_files, staging_area, commit_id):
     """Returns dict where key is file path in current directory
     and value is list of two elements (file path in repository,
-    file hash) and also it returns list of files, which must be
+    file hash, file status) and also it returns list of files, which must be
     copied"""
     commit_files = dict()
     staging_files = staging_area["staging_files"]
@@ -428,14 +511,20 @@ def _get_commit_files(prev_files, staging_area, commit_id):
     files_to_copy = modified_files.union(added_files)
 
     if prev_files:
-        commit_files = {file: data for file, data in prev_files.items()
-                        if file not in (deleted_files or modified_files)}
+        for file, data in prev_files.items():
+            if file in (deleted_files or modified_files):
+                continue
+            if data[2] == FileState.DELETED.name:
+                continue
+            data[2] = FileState.UNCHANGED.name
+            commit_files[file] = data
 
     for file in files_to_copy:
         file_hash = ut.get_file_hash(file)
         file_path = os.path.join(BRANCHES, staging_area["current_branch"],
                                  commit_id, Path(file).name)
-        commit_files[file] = [file_path, file_hash]
+        state = FileState.NEW if file in added_files else FileState.MODIFIED
+        commit_files[file] = [file_path, file_hash, state.name]
 
     return commit_files, files_to_copy
 
@@ -468,8 +557,10 @@ def _get_last_commit(current_branch):
         return branch_log_obj["commits"][branch_log_obj["head"]]
     elif branch_log_obj["parent_branch"] and branch_log_obj["parent_commit_id"]:
         parent_commit = branch_log_obj["parent_commit_id"]
-        branch_log_path = os.path.join(BRANCHES_LOG,
-                                       f"{branch_log_obj['parent_branch']}.json")  # TODO - ругался на скобки, фикс надо проверить
+        branch_log_path = os.path.join(
+            BRANCHES_LOG,
+            f"{branch_log_obj['parent_branch']}.json"
+        )
         branch_log_obj = ut.read_json_file(branch_log_path)
         if parent_commit in branch_log_obj["commits"].keys():
             return branch_log_obj["commits"][parent_commit]
