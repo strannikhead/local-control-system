@@ -1,7 +1,9 @@
 import os
+import time
+
 import utils as ut
 import pytest
-
+from pathlib import Path
 import cvs
 import exceptions
 
@@ -116,6 +118,22 @@ class TestCommitCommand(InitDirs):
         assert f"Changes were commited with message: {commit_message}\n" in captured.out
 
     def test_many_commits(self, capsys):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._commit('commit1')
+        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        cvs._commit('commit2')
+        branch_log_path = os.path.join(cvs.BRANCHES_LOG, "main.json")
+        branch_log_obj = ut.read_json_file(branch_log_path)
+        commit_id = branch_log_obj["head"]
+        commit_info_obj = branch_log_obj["commits"][commit_id]
+        staging_area = cvs._update_staging_area()
+        last_commit = cvs._get_last_commit(staging_area["current_branch"])
+        assert commit_info_obj["parent_commit_branch"] == last_commit["branch"]
+        assert commit_info_obj["id"] == last_commit["id"]
+        assert commit_info_obj["files"] == last_commit["files"]
 
 
 class TestStatusCommand(InitDirs):
@@ -127,8 +145,6 @@ class TestStatusCommand(InitDirs):
         open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
         cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
         status = cvs._status()
-        staging_area = ut.read_json_file(cvs.STAGING_AREA)
-        staging_files = staging_area["staging_files"]
         assert ["Current branch is 'main'\n",
                 'NEW FILES:\n',
                 f'- {cvs.CURRENT_DIR}/test2.txt\n',
@@ -136,8 +152,36 @@ class TestStatusCommand(InitDirs):
                 f"- {cvs.CURRENT_DIR}/test1.txt\n"] == status
 
 
-class TestLogCommand:
-    pass
+class TestLogCommand(InitDirs):
+    def test_log(self, capsys):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._commit('commit1')
+        cvs._branch("second_branch")
+        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        cvs._commit('commit2')
+        logs = cvs._log()
+
+        log_paths = list(Path(cvs.BRANCHES_LOG).iterdir())
+        branch_log_obj1 = ut.read_json_file(os.path.join(cvs.BRANCHES_LOG, log_paths[0].name))
+        dummy1 = branch_log_obj1['head']
+        date1 = time.strptime(branch_log_obj1["commits"][dummy1]["time"])
+        str_date1 = f"{date1.tm_mon:0>2}.{date1.tm_mday:0>2}.{date1.tm_year}"
+        message1 = branch_log_obj1["commits"][dummy1]["message"]
+
+        branch_log_obj2 = ut.read_json_file(os.path.join(cvs.BRANCHES_LOG, log_paths[1].name))
+        dummy2 = branch_log_obj2['head']
+        date2 = time.strptime(branch_log_obj2["commits"][dummy2]["time"])
+        str_date2 = f"{date2.tm_mon:0>2}.{date2.tm_mday:0>2}.{date2.tm_year}"
+        message2 = branch_log_obj2["commits"][dummy2]["message"]
+
+        assert ("Commit History:\n"
+                f"- {branch_log_obj1['branch']}\n"
+                f" - {str_date1} {dummy1} '{message1}'\n"
+                "- second_branch\n"
+                f" - {str_date2} {dummy2} '{message2}'\n") == ''.join(logs)
 
 
 class TestBranchCommand:
