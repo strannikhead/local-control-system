@@ -184,53 +184,90 @@ class TestLogCommand(InitDirs):
                 f" - {str_date2} {dummy2} '{message2}'\n") == ''.join(logs)
 
 
-class TestBranchCommand:
-    pass
+class TestBranchCommand(InitDirs):
+    def test_create_branch_with_existing_name(self):
+        cvs._init()
+        with pytest.raises(exceptions.BranchException):
+            cvs._branch('main')
+
+    def test_create_branch_in_empty_branch(self):
+        cvs._init()
+        with pytest.raises(exceptions.BranchException):
+            cvs._branch('test')
+
+    def test_create_branch(self, capsys):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._commit('commit1')
+        cvs._branch('second_branch', console_info=True)
+        captured = capsys.readouterr()
+        assert os.path.exists(os.path.join(cvs.BRANCHES, 'main'))
+        assert os.path.exists(os.path.join(cvs.BRANCHES, 'main', 'staging_area.json'))
+        assert os.path.exists(os.path.join(cvs.BRANCHES, 'second_branch'))
+        assert os.path.exists(os.path.join(cvs.BRANCHES, 'second_branch', 'staging_area.json'))
+        assert f"Branch 'second_branch' was created\n" in captured.out
 
 
-class TestCheckoutCommand:
-    pass
 
-# def test_add_commit_reset(vcs_initialized):
-#     # Create test files
-#     test_file1 = os.path.join(vcs_initialized, "test_file1.txt")
-#     test_file2 = os.path.join(vcs_initialized, "test_file2.txt")
-#     with open(test_file1, 'w') as f:
-#         f.write("Test file 1 content")
-#     with open(test_file2, 'w') as f:
-#         f.write("Test file 2 content")
-#
-#     # Add files to staging area
-#     subprocess.run(['python', 'vcs.py', 'add', 'test_file1.txt', 'test_file2.txt'], cwd=vcs_initialized)
-#     assert os.path.isfile(os.path.join(vcs_initialized, ".vcs/staging_area/file_list.txt"))
-#
-#     # Commit changes
-#     subprocess.run(['python', 'vcs.py', 'commit', 'Initial commit'], cwd=vcs_initialized)
-#     assert os.listdir(os.path.join(vcs_initialized, ".vcs/commits"))
-#
-#     # Reset staging area
-#     subprocess.run(['python', 'vcs.py', 'reset'], cwd=vcs_initialized)
-#     assert not os.listdir(os.path.join(vcs_initialized, ".vcs/staging_area"))
-#
-#
-# def test_log(vcs_initialized):
-#     # Check log when no commits exist
-#     result = subprocess.run(['python', 'vcs.py', 'log'], cwd=vcs_initialized, capture_output=True, text=True)
-#     assert "No commits yet." in result.stdout
-#
-#     # Commit changes
-#     subprocess.run(['python', 'vcs.py', 'commit', 'Initial commit'], cwd=vcs_initialized)
-#
-#     # Check log after commit
-#     result = subprocess.run(['python', 'vcs.py', 'log'], cwd=vcs_initialized, capture_output=True, text=True)
-#     assert "Commit History" in result.stdout
-#
-#
-# def test_branch_checkout(vcs_initialized):
-#     # Create a new branch
-#     subprocess.run(['python', 'vcs.py', 'branch', 'new_branch'], cwd=vcs_initialized)
-#     assert os.path.isdir(os.path.join(vcs_initialized, ".vcs/branches/new_branch"))
-#
-#     # Switch to the new branch
-#     subprocess.run(['python', 'vcs.py', 'checkout', 'new_branch'], cwd=vcs_initialized)
-#     # Implement further checks for branch checkout as needed
+class TestCheckoutCommand(InitDirs):
+    def test_checkout_on_non_existent_branch(self):
+        cvs._init()
+        with pytest.raises(exceptions.CheckoutException):
+            cvs._checkout("non_existent_branch")
+
+    def test_checkout_on_current_branch(self):
+        cvs._init()
+        with pytest.raises(exceptions.CheckoutException):
+            cvs._checkout("main")
+
+    def test_checkout_from_uncommited_branch(self):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._commit('commit1')
+        cvs._branch("second_branch")
+        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        with pytest.raises(exceptions.CheckoutException):
+            cvs._checkout("main")
+
+    def test_checkout_with_edited_file(self):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._commit('commit1')
+        cvs._branch("second_branch")
+        with open(f'{cvs.CURRENT_DIR}/test1.txt', 'w') as f:
+            f.write("test string\n")
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._commit('commit2')
+        cvs._checkout("main")
+        with open(f'{cvs.CURRENT_DIR}/test2.txt', 'r') as f:
+            for line in f.readlines():
+                if "test string" in line:
+                    assert False
+            else:
+                assert True
+
+    def test_checkout(self, capsys):
+        cvs._init()
+        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._commit('commit1')
+        cvs._branch("second_branch")
+        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
+        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        cvs._commit('commit2')
+
+        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test1.txt'))
+        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test2.txt'))
+
+        cvs._checkout("main", console_info=True)
+        captured = capsys.readouterr()
+        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test1.txt'))
+        assert not os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test2.txt'))
+        assert "Switched to branch 'main'" in captured.out
+
+
+
