@@ -21,7 +21,7 @@ class InitDirs:
         cvs.CURRENT_DIR = f"{temp}"
 
 
-class TestAdditionalFunctions():
+class TestAdditionalFunctions(InitDirs):
     def test_rep_existence(self):
         with pytest.raises(exceptions.RepositoryException):
             cvs._check_repository_existence()
