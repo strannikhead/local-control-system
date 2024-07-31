@@ -320,9 +320,9 @@ def _checkout(branch_name, console_info=False):
 
     ignores = ut.read_json_file(GITIGNORE)
     ignores["FILES"] += staging_files[FileState.UNTRACKED.name]
-    ut.clear_directory(".", ignores)
+    ut.clear_directory(CURRENT_DIR, ignores)
     last_commit = _get_last_commit(branch_name)
-    ut.copy_files(".", [val[0] for _, val in last_commit["files"].items()
+    ut.copy_files(CURRENT_DIR, [val[0] for _, val in last_commit["files"].items()
                         if val[2] != FileState.DELETED.name])
 
     if console_info:
@@ -372,7 +372,7 @@ def _cherry_pick(commit_id, console_info=False):
     _create_commit(staging_area["current_branch"], commit_id,
                    commit_log["message"], commit_files,
                    last_commit["id"], last_commit["branch"])
-    ut.copy_files(".", files_to_copy)
+    ut.copy_files(CURRENT_DIR, files_to_copy)
 
     if console_info:
         click.echo(f"Cherry pick was made successfully")
