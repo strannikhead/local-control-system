@@ -13,6 +13,13 @@ class InitDirs:
     def test_setup(self, tmp_path):
         temp = tmp_path
         print(temp)
+        # cvs.MAIN_BRANCH = os.path.join(temp, '/.cvs/branches/main')
+        # cvs.BRANCHES = os.path.join(temp, '/.cvs/branches')
+        # cvs.BRANCHES_LOG = os.path.join(temp, '/.cvs/branches_log')
+        # cvs.STAGING_AREA = os.path.join(temp, '/.cvs/staging_area.json')
+        # cvs.GITIGNORE = os.path.join(temp, '/.cvs/cvsignore.json')
+        # cvs.CURRENT_DIR = os.path.join(temp)
+
         cvs.MAIN_BRANCH = f"{temp}/.cvs/branches/main"
         cvs.BRANCHES = f"{temp}/.cvs/branches"
         cvs.BRANCHES_LOG = f"{temp}/.cvs/branches_log"

@@ -10,11 +10,11 @@ class CVSApp:
         # Window options
         self.root = root
         self.root.title("Control Version System")
-        self.root.geometry("600x400")
+        self.root.geometry("800x600")
+        self.root.resizable(False, False)
 
         self.current_dir = None
         self.items = []
-
         self.init_menu()
 
         # Frame for file list
@@ -29,13 +29,13 @@ class CVSApp:
         self.scrollbar.config(command=self.canvas.yview)
         # Frame inside the canvas
         self.check_frame = tk.Frame(self.canvas)
-        self.canvas.create_window((0, 0), window=self.check_frame, anchor='nw')
+        self.canvas.create_window((1, 0), window=self.check_frame, anchor='nw')
+        # Text field
+        self.text_field = tk.Text(self.root, width=20, height=2, border=5)
+        self.text_field.pack(side=tk.LEFT, fill=tk.X)
         # Button to show selected files
         self.show_button = tk.Button(self.root, text="Commit", command=self.commit)
-        self.show_button.pack(pady=10)
-        # Text field
-        self.text_field = tk.Entry(self.root, textvariable=tk.StringVar(), )
-        self.text_field.pack(pady=10)
+        self.show_button.pack(pady=10, side=tk.LEFT)
 
     def init_menu(self):
         # File
@@ -99,14 +99,15 @@ class CVSApp:
         try:
             cvs._check_repository_existence()
         except exceptions.RepositoryException:
-            messagebox.showinfo('Error', 'Repository not initialized')
+            messagebox.showinfo('Error', 'Repository not selected')
         else:
-            if not self.items:
+            items = self.get_items()
+            if not items:
                 messagebox.showinfo('Error', 'No items to commit')
             else:
                 cvs._reset()
-                cvs._add(self.items)
-                cvs._commit(self.text_field.get(), console_info=True)
+                cvs._add(items, console_info=True)
+                cvs._commit(self.text_field.get("1.0", "end"), console_info=True)
 
     def open_directory(self):
         directory = filedialog.askdirectory()
@@ -133,6 +134,9 @@ class CVSApp:
         self.check_frame.update_idletasks()
         self.canvas.config(scrollregion=self.canvas.bbox("all"))
 
+    def get_items(self):
+        return [filename for filename, var in self.items if var.get()]
+
     def show_selected(self):
         selected_files = [filename for filename, var in self.items if var.get()]
         if not selected_files:
@@ -140,7 +144,7 @@ class CVSApp:
         else:
             print(f"Selected Files:\n {', '.join(selected_files)}")
             print()
-            print(self.text_field.get())
+            print(self.text_field.get('1.0', 'end'))
 
 
 if __name__ == "__main__":
