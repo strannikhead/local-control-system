@@ -319,11 +319,10 @@ def _checkout(branch_name, console_info=False):
     ut.write_json_file(STAGING_AREA, new_staging_area)
 
     ignores = ut.read_json_file(GITIGNORE)
-    ignores["FILES"] += staging_files[FileState.UNTRACKED.name]
     ut.clear_directory(CURRENT_DIR, ignores)
     last_commit = _get_last_commit(branch_name)
     ut.copy_files(CURRENT_DIR, [val[0] for _, val in last_commit["files"].items()
-                        if val[2] != FileState.DELETED.name])
+                                if val[2] != FileState.DELETED.name])
 
     if console_info:
         click.echo(f"Switched to branch '{branch_name}'\n")
