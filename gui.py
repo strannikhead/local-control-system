@@ -39,17 +39,21 @@ class CVSApp:
 
     def init_menu(self):
         # File
-        menu = tk.Menu(self.root)
-        self.root.config(menu=menu)
-        file_menu = tk.Menu(menu, tearoff=0)
-        menu.add_cascade(label="File", menu=file_menu)
+        self.menu = tk.Menu(self.root)
+        self.root.config(menu=self.menu)
+        file_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Open Directory", command=self.open_directory)
         file_menu.add_command(label="Exit", command=root.quit)
 
         # Options
-        options_menu = tk.Menu(menu, tearoff=0)
-        menu.add_cascade(label="Options", menu=options_menu)
+        options_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Options", menu=options_menu)
         options_menu.add_command(label="Initialize", command=self.init)
+
+        self.branches_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Branches", menu=self.branches_menu)
+
 
     def init_window_content(self):
         # Frame for file list
@@ -92,6 +96,7 @@ class CVSApp:
         try:
             cvs._init()
             self.populate_file_list()
+            messagebox.showinfo('Success', 'Cvs initialized')
         except exceptions.RepositoryException:
             messagebox.showinfo('Error', 'Repository already initialized')
 
@@ -108,6 +113,7 @@ class CVSApp:
                 cvs._reset()
                 cvs._add(items, console_info=True)
                 cvs._commit(self.text_field.get("1.0", "end"), console_info=True)
+                messagebox.showinfo('Success', 'Commit successful')
 
     def open_directory(self):
         directory = filedialog.askdirectory()
@@ -116,6 +122,12 @@ class CVSApp:
         self.init_cvs_directories()
         if directory:
             self.populate_file_list()
+            self.init_menu()
+
+        branches = cvs._get_branches()
+        print(branches)
+        for branch in branches:
+            self.branches_menu.add_cascade(label=branch)
 
     def populate_file_list(self):
         # Clear the previous list

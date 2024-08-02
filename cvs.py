@@ -559,13 +559,16 @@ def _get_last_commit(current_branch):
         parent_commit = branch_log_obj["parent_commit_id"]
         branch_log_path = os.path.join(
             BRANCHES_LOG,
-            f"{branch_log_obj['parent_branch']}.json"  # TODO - ругался на скобки, фикс надо проверить
+            f"{branch_log_obj['parent_branch']}.json"
         )
         branch_log_obj = ut.read_json_file(branch_log_path)
         if parent_commit in branch_log_obj["commits"].keys():
             return branch_log_obj["commits"][parent_commit]
     return None
 
+
+def _get_branches() -> list:
+    return [i for i in os.listdir(BRANCHES) if i[0] != '.']
 
 # endregion
 

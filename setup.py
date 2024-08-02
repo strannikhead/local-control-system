@@ -30,7 +30,7 @@ add_to_profile_if_not_exists(app_installation_path)
 setup(
     name='cvs',
     version='1.0',
-    py_modules=['cvs', 'utils'],
+    py_modules=['cvs', 'utils', 'exceptions', 'gui'],
     entry_points={
         'console_scripts': [
             'cvs=cvs:cli'
