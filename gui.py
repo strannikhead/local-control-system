@@ -58,10 +58,6 @@ class CVSApp:
         self.menu.add_cascade(label="Cherrypick", menu=self.cherry_menu)
 
     @staticmethod
-    def print_test():
-        messagebox.showinfo('test', 'This is a test message')
-
-    @staticmethod
     def init_cvs_directories(directory):
         cvs.MAIN_BRANCH = os.path.join(directory, '.cvs/branches/main')
         cvs.BRANCHES = os.path.join(directory, '.cvs/branches')
@@ -155,6 +151,8 @@ class CVSApp:
 
         # Add files to the checklist
         for filename in os.listdir(cvs.CURRENT_DIR):
+            if filename[0] == '.':
+                continue
             var = tk.BooleanVar()
             chk = tk.Checkbutton(self.check_frame, text=filename, variable=var)
             chk.pack(anchor='w')
@@ -165,15 +163,6 @@ class CVSApp:
 
     def get_items(self):
         return [filename for filename, var in self.items if var.get()]
-
-    def show_selected(self):
-        selected_files = [filename for filename, var in self.items if var.get()]
-        if not selected_files:
-            messagebox.showinfo("No Files", "No Files Selected")
-        else:
-            print(f"Selected Files:\n {', '.join(selected_files)}")
-            print()
-            print(self.text_field.get('1.0', 'end'))
 
     def create_branch(self):
         branch_name = simpledialog.askstring("Create branch", "Enter branch name")
