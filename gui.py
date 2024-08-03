@@ -105,9 +105,13 @@ class CVSApp:
             self.populate_file_list()
             self.init_menu()
 
-        branches = cvs._get_branches()
-        for branch in branches:
-            self.branches_menu.add_command(label=branch, command=lambda b=branch: self.checkout(b, console_info=True))
+        try:
+            cvs._check_repository_existence()
+            branches = cvs._get_branches()
+            for branch in branches:
+                self.branches_menu.add_command(label=branch, command=lambda b=branch: self.checkout(b, console_info=True))
+        except:
+            pass
 
         try:
             cvs._check_repository_existence()

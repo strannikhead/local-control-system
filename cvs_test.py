@@ -311,7 +311,6 @@ class TestUpdateMessageCommand(InitDirs):
             cvs._change_commit_message('non_existing_commit', 'new_message')
 
 
-
 class TestCherryPickCommand(InitDirs):
     def test_cherry_pick(self, capsys):
         cvs._init()
@@ -364,4 +363,3 @@ class TestCherryPickCommand(InitDirs):
         cvs._commit('commit2')
         cvs._cherry_pick(commit_id1)
         assert os.path.exists(path2)
-
