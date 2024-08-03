@@ -581,7 +581,7 @@ def _get_branches() -> list:
     return [i for i in os.listdir(BRANCHES) if i[0] != '.']
 
 
-def _get_commits(branch) -> list[tuple[str, str]] | None:
+def _get_commits(branch) -> list[tuple[str, str, str]] | None:
     _update_staging_area()
     log_list = []
     log_path = Path(BRANCHES_LOG)
@@ -594,7 +594,8 @@ def _get_commits(branch) -> list[tuple[str, str]] | None:
     while True:
         date = time.strptime(commits[dummy]["time"])
         str_date = f"{date.tm_mon:0>2}.{date.tm_mday:0>2}.{date.tm_year}"
-        log_list.append((dummy, str_date))
+        message = commits[dummy]["message"]
+        log_list.append((dummy, str_date, message))
         if commits[dummy]["parent_commit_branch"] != Path(path).stem:
             break
         dummy = commits[dummy]["parent_commit_id"]

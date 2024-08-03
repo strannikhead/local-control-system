@@ -63,12 +63,12 @@ class CVSApp:
 
     @staticmethod
     def init_cvs_directories(directory):
-        cvs.MAIN_BRANCH = f"{directory}/.cvs/branches/main"
-        cvs.BRANCHES = f"{directory}/.cvs/branches"
-        cvs.BRANCHES_LOG = f"{directory}/.cvs/branches_log"
-        cvs.STAGING_AREA = f"{directory}/.cvs/staging_area.json"
-        cvs.GITIGNORE = f"{directory}/.cvs/cvsignore.json"
-        cvs.CURRENT_DIR = f"{directory}"
+        cvs.MAIN_BRANCH = os.path.join(directory, '.cvs/branches/main')
+        cvs.BRANCHES = os.path.join(directory, '.cvs/branches')
+        cvs.BRANCHES_LOG = os.path.join(directory, '.cvs/branches_log')
+        cvs.STAGING_AREA = os.path.join(directory, '.cvs/staging_area.json')
+        cvs.GITIGNORE = os.path.join(directory, '.cvs/cvsignore.json')
+        cvs.CURRENT_DIR = os.path.join(directory)
 
     def init(self):
         if cvs.CURRENT_DIR == '.' or not cvs.CURRENT_DIR:
@@ -77,6 +77,7 @@ class CVSApp:
             cvs._init()
             self.populate_file_list()
             messagebox.showinfo('Success', 'Cvs initialized')
+            self.init_branches()
         except exceptions.RepositoryException:
             messagebox.showinfo('Error', 'Repository already initialized')
 
@@ -97,6 +98,7 @@ class CVSApp:
                     pass
                 cvs._commit(self.text_field.get("1.0", "end"), console_info=True)
                 messagebox.showinfo('Success', 'Commit successful')
+                self.init_cherry_pick()
 
     def open_directory(self):
         directory = filedialog.askdirectory()
@@ -107,14 +109,7 @@ class CVSApp:
             self.init_menu()
 
         self.init_branches()
-
-        try:
-            cvs._check_repository_existence()
-            staging_area = cvs._update_staging_area()
-            current_branch = staging_area["current_branch"]
-            self.init_cherry_pick(current_branch)
-        except:
-            pass
+        self.init_cherry_pick()
 
     def init_branches(self):
         try:
@@ -129,12 +124,23 @@ class CVSApp:
     def checkout(self, branch, console_info=False):
         cvs._checkout(branch, console_info)
         self.populate_file_list()
-        self.init_cherry_pick(branch)
+        self.init_cherry_pick()
 
-    def init_cherry_pick(self, branch):
-        commits = cvs._get_commits(branch)
-        for commit in commits:
-            self.cherry_menu.add_command(label=' - '.join(commit), command=lambda c=commit[0]: self.cherry_pick(c))
+    def init_cherry_pick(self):
+        try:
+            cvs._check_repository_existence()
+            staging_area = cvs._update_staging_area()
+            current_branch = staging_area["current_branch"]
+            self.cherry_menu.destroy()
+            self.cherry_menu = tk.Menu(self.menu, tearoff=0)
+            self.menu.add_cascade(label="Cherrypick", menu=self.cherry_menu)
+            commits = cvs._get_commits(current_branch)
+            for commit in commits:
+                print(commit)
+                self.cherry_menu.add_command(label=f"{self.truncate(commit[2], 10)}{commit[1]}",
+                                             command=lambda c=commit[0]: self.cherry_pick(c))
+        except:
+            pass
 
     def cherry_pick(self, commit_id):
         cvs._cherry_pick(commit_id, console_info=True)
@@ -178,6 +184,10 @@ class CVSApp:
             self.init_branches()
         except:
             messagebox.showinfo('Error', 'Creating branch error')
+
+    @staticmethod
+    def truncate(string, length):
+        return string if len(string) <= length else string[:length]
 
     def run(self):
         self.root.mainloop()
