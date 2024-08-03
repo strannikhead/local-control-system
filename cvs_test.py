@@ -61,25 +61,25 @@ class TestAddCommand(InitDirs):
 
     def test_add_all_files(self, capsys):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
-        assert os.path.exists(f'{cvs.CURRENT_DIR}/test1.txt')
-        assert os.path.exists(f'{cvs.CURRENT_DIR}/test2.txt')
+        open(os.path.join(cvs.CURRENT_DIR, 'test1.txt'), 'a')
+        open(os.path.join(cvs.CURRENT_DIR, 'test2.txt'), 'a')
+        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test1.txt'))
+        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test2.txt'))
         cvs._add(['.'], console_info=True)
         captured = capsys.readouterr()
         staging_area = ut.read_json_file(cvs.STAGING_AREA)
         assert not staging_area['staging_files'][cvs.FileState.UNTRACKED.name]
-        assert f'{cvs.CURRENT_DIR}/test1.txt' in staging_area['staging_files'][cvs.FileState.NEW.name]
-        assert f'{cvs.CURRENT_DIR}/test2.txt' in staging_area['staging_files'][cvs.FileState.NEW.name]
-        assert f"Added 2 file(s) to staging area: {cvs.CURRENT_DIR}/test1.txt, {cvs.CURRENT_DIR}/test2.txt" in captured.out
+        assert os.path.join(cvs.CURRENT_DIR, 'test1.txt') in staging_area['staging_files'][cvs.FileState.NEW.name]
+        assert os.path.join(cvs.CURRENT_DIR, 'test2.txt') in staging_area['staging_files'][cvs.FileState.NEW.name]
+        assert f"Added 2 file(s) to staging area: {os.path.join(cvs.CURRENT_DIR, 'test1.txt')}, {os.path.join(cvs.CURRENT_DIR, 'test2.txt')}" in captured.out
 
     def test_add_one_file(self, capsys):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'], console_info=True)
+        open(os.path.join(cvs.CURRENT_DIR, 'test1.txt'), 'a')
+        open(os.path.join(cvs.CURRENT_DIR, 'test2.txt'), 'a')
+        cvs._add([os.path.join(cvs.CURRENT_DIR, 'test1.txt')], console_info=True)
         staging_area = ut.read_json_file(cvs.STAGING_AREA)
-        assert f'{cvs.CURRENT_DIR}/test1.txt' in staging_area['staging_files'][cvs.FileState.NEW.name]
+        assert f"{os.path.join(cvs.CURRENT_DIR, 'test1.txt')}" in staging_area['staging_files'][cvs.FileState.NEW.name]
 
     def test_add_non_existent_file(self, capsys):
         cvs._init()
@@ -90,10 +90,10 @@ class TestAddCommand(InitDirs):
 class TestResetCommand(InitDirs):
     def test_reset(self, capsys):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test.txt'])
+        open(os.path.join(cvs.CURRENT_DIR, 'test.txt'), 'a')
+        cvs._add([os.path.join(cvs.CURRENT_DIR, 'test.txt')])
         staging_area = ut.read_json_file(cvs.STAGING_AREA)
-        assert f'{cvs.CURRENT_DIR}/test.txt' in staging_area['staging_files'][cvs.FileState.NEW.name]
+        assert f"{os.path.join(cvs.CURRENT_DIR, 'test.txt')}" in staging_area['staging_files'][cvs.FileState.NEW.name]
         cvs._reset(console_info=True)
         captured = capsys.readouterr()
         staging_files = ut.read_json_file(cvs.STAGING_AREA)["staging_files"]
@@ -110,9 +110,11 @@ class TestCommitCommand(InitDirs):
 
     def test_commit(self, capsys):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt', f'{cvs.CURRENT_DIR}/test2.txt'])
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        path2 = os.path.join(cvs.CURRENT_DIR, 'test2.txt')
+        open(path1, 'a')
+        open(path2, 'a')
+        cvs._add([path1, path2])
         commit_message = 'commit test'
         cvs._commit(commit_message, console_info=True)
         captured = capsys.readouterr()
@@ -121,17 +123,19 @@ class TestCommitCommand(InitDirs):
         assert not staging_files[cvs.FileState.DELETED.name]
         assert not staging_files[cvs.FileState.MODIFIED.name]
         assert not staging_files[cvs.FileState.NEW.name]
-        assert f'{cvs.CURRENT_DIR}/test1.txt' in staging_files[cvs.FileState.UNCHANGED.name]
-        assert f'{cvs.CURRENT_DIR}/test2.txt' in staging_files[cvs.FileState.UNCHANGED.name]
+        assert path1 in staging_files[cvs.FileState.UNCHANGED.name]
+        assert path2 in staging_files[cvs.FileState.UNCHANGED.name]
         assert f"Changes were commited with message: {commit_message}\n" in captured.out
 
     def test_many_commits(self, capsys):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        path2 = os.path.join(cvs.CURRENT_DIR, 'test2.txt')
+        open(path1, 'a')
+        cvs._add([path1])
         cvs._commit('commit1')
-        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        open(path2, 'a')
+        cvs._add([path2])
         cvs._commit('commit2')
         branch_log_path = os.path.join(cvs.BRANCHES_LOG, "main.json")
         branch_log_obj = ut.read_json_file(branch_log_path)
@@ -147,28 +151,32 @@ class TestCommitCommand(InitDirs):
 class TestStatusCommand(InitDirs):
     def test_status(self):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        path2 = os.path.join(cvs.CURRENT_DIR, 'test2.txt')
+        open(path1, 'a')
+        cvs._add([path1])
         cvs._commit('commit')
-        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        open(path2, 'a')
+        cvs._add([path2])
         status = cvs._status()
         assert ["Current branch is 'main'\n",
                 'NEW FILES:\n',
-                f'- {cvs.CURRENT_DIR}/test2.txt\n',
+                f'- {path2}\n',
                 'UNCHANGED FILES:\n',
-                f"- {cvs.CURRENT_DIR}/test1.txt\n"] == status
+                f"- {path1}\n"] == status
 
 
 class TestLogCommand(InitDirs):
     def test_log(self, capsys):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        path2 = os.path.join(cvs.CURRENT_DIR, 'test2.txt')
+        open(path1, 'a')
+        cvs._add([path1])
         cvs._commit('commit1')
         cvs._branch("second_branch")
-        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        open(path2, 'a')
+        cvs._add([path2])
         cvs._commit('commit2')
         logs = cvs._log()
 
@@ -205,8 +213,9 @@ class TestBranchCommand(InitDirs):
 
     def test_create_branch(self, capsys):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        open(path1, 'a')
+        cvs._add([path1])
         cvs._commit('commit1')
         cvs._branch('second_branch', console_info=True)
         captured = capsys.readouterr()
@@ -230,57 +239,63 @@ class TestCheckoutCommand(InitDirs):
 
     def test_checkout_from_uncommited_branch(self):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        path2 = os.path.join(cvs.CURRENT_DIR, 'test2.txt')
+        open(path1, 'a')
+        cvs._add([path1])
         cvs._commit('commit1')
         cvs._branch("second_branch")
-        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        open(path2, 'a')
+        cvs._add([path2])
         with pytest.raises(exceptions.CheckoutException):
             cvs._checkout("main")
 
     def test_checkout_with_edited_file(self):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        open(path1, 'a')
+        cvs._add([path1])
         cvs._commit('commit1')
         cvs._branch("second_branch")
-        with open(f'{cvs.CURRENT_DIR}/test1.txt', 'w') as f:
+        with open(path1, 'w') as f:
             f.write("test string")
         cvs._commit('commit2')
         cvs._checkout("main")
-        with open(f'{cvs.CURRENT_DIR}/test1.txt', 'r') as f:
+        with open(path1, 'r') as f:
             assert not f.readlines()
 
     def test_checkout(self, capsys):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        path2 = os.path.join(cvs.CURRENT_DIR, 'test2.txt')
+        open(path1, 'a')
+        cvs._add([path1])
         cvs._commit('commit1')
         cvs._branch("second_branch")
-        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        open(path2, 'a')
+        cvs._add([path2])
         cvs._commit('commit2')
 
-        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test1.txt'))
-        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test2.txt'))
+        assert os.path.exists(path1)
+        assert os.path.exists(path2)
 
         cvs._checkout("main", console_info=True)
         captured = capsys.readouterr()
-        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test1.txt'))
-        assert not os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test2.txt'))
+        assert os.path.exists(path1)
+        assert not os.path.exists(path2)
         assert "Switched to branch 'main'" in captured.out
 
         cvs._checkout("second_branch")
-        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test1.txt'))
-        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test2.txt'))
+        assert os.path.exists(path1)
+        assert os.path.exists(path2)
 
 
 class TestUpdateMessageCommand(InitDirs):
     def test_update_message(self, capsys):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        open(path1, 'a')
+        cvs._add([path1])
         cvs._commit('commit1')
         current_branch = ut.read_json_file(os.path.join(cvs.BRANCHES_LOG, 'main.json'))
         commit_id = list(current_branch['commits'].keys())[0]
@@ -300,27 +315,29 @@ class TestUpdateMessageCommand(InitDirs):
 class TestCherryPickCommand(InitDirs):
     def test_cherry_pick(self, capsys):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        with open(f'{cvs.CURRENT_DIR}/test1.txt', 'w') as f:
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        open(path1, 'a')
+        with open(path1, 'w') as f:
             f.write("test string1")
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        cvs._add([path1])
         cvs._commit('commit1')
         current_branch = ut.read_json_file(os.path.join(cvs.BRANCHES_LOG, 'main.json'))
         commit_id1 = list(current_branch['commits'].keys())[0]
-        with open(f'{cvs.CURRENT_DIR}/test1.txt', 'w') as f:
+        with open(path1, 'w') as f:
             f.write("test string2")
         cvs._commit('commit2')
         cvs._branch("second_branch")
         cvs._cherry_pick(commit_id1, console_info=True)
         captured = capsys.readouterr()
-        with open(f'{cvs.CURRENT_DIR}/test1.txt', 'r') as f:
+        with open(path1, 'r') as f:
             assert f.readlines() == ["test string1"]
         assert "Cherry pick was made successfully" in captured.out
 
     def test_cherry_pick_last_commit(self):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        open(path1, 'a')
+        cvs._add([path1])
         cvs._commit('commit1')
         current_branch = ut.read_json_file(os.path.join(cvs.BRANCHES_LOG, 'main.json'))
         commit_id1 = list(current_branch['commits'].keys())[0]
@@ -334,15 +351,17 @@ class TestCherryPickCommand(InitDirs):
 
     def test_cherry_pick_commit_with_deleted_files(self):
         cvs._init()
-        open(f'{cvs.CURRENT_DIR}/test1.txt', 'a')
-        open(f'{cvs.CURRENT_DIR}/test2.txt', 'a')
-        cvs._add([f'{cvs.CURRENT_DIR}/test1.txt'])
-        cvs._add([f'{cvs.CURRENT_DIR}/test2.txt'])
+        path1 = os.path.join(cvs.CURRENT_DIR, 'test1.txt')
+        path2 = os.path.join(cvs.CURRENT_DIR, 'test2.txt')
+        open(path1, 'a')
+        open(path2, 'a')
+        cvs._add([path1])
+        cvs._add([path2])
         cvs._commit('commit1')
         current_branch = ut.read_json_file(os.path.join(cvs.BRANCHES_LOG, 'main.json'))
         commit_id1 = list(current_branch['commits'].keys())[0]
-        os.remove(f'{cvs.CURRENT_DIR}/test2.txt')
+        os.remove(path2)
         cvs._commit('commit2')
         cvs._cherry_pick(commit_id1)
-        assert os.path.exists(os.path.join(cvs.CURRENT_DIR, 'test2.txt'))
+        assert os.path.exists(path2)
 
