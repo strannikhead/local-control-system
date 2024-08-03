@@ -1,6 +1,6 @@
 import os
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog
 import cvs
 import exceptions
 
@@ -49,6 +49,7 @@ class CVSApp:
         options_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Options", menu=options_menu)
         options_menu.add_command(label="Initialize", command=self.init)
+        options_menu.add_command(label="Create branch", command=self.create_branch)
         # Branches
         self.branches_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Branches", menu=self.branches_menu)
@@ -105,19 +106,23 @@ class CVSApp:
             self.populate_file_list()
             self.init_menu()
 
-        try:
-            cvs._check_repository_existence()
-            branches = cvs._get_branches()
-            for branch in branches:
-                self.branches_menu.add_command(label=branch, command=lambda b=branch: self.checkout(b, console_info=True))
-        except:
-            pass
+        self.init_branches()
 
         try:
             cvs._check_repository_existence()
             staging_area = cvs._update_staging_area()
             current_branch = staging_area["current_branch"]
             self.init_cherry_pick(current_branch)
+        except:
+            pass
+
+    def init_branches(self):
+        try:
+            cvs._check_repository_existence()
+            branches = cvs._get_branches()
+            for branch in branches:
+                self.branches_menu.add_command(label=branch,
+                                               command=lambda b=branch: self.checkout(b, console_info=True))
         except:
             pass
 
@@ -163,6 +168,16 @@ class CVSApp:
             print(f"Selected Files:\n {', '.join(selected_files)}")
             print()
             print(self.text_field.get('1.0', 'end'))
+
+    def create_branch(self):
+        branch_name = simpledialog.askstring("Create branch", "Enter branch name")
+        if not branch_name:
+            return
+        try:
+            cvs._branch(branch_name, True)
+            self.init_branches()
+        except:
+            messagebox.showinfo('Error', 'Creating branch error')
 
     def run(self):
         self.root.mainloop()
