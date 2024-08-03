@@ -54,7 +54,7 @@ class CVSApp:
         self.menu.add_cascade(label="Branches", menu=self.branches_menu)
         # Cherry Picks
         self.cherry_menu = tk.Menu(self.menu, tearoff=0)
-        self.menu.add_cascade(label="Cherry picks", menu=self.cherry_menu)
+        self.menu.add_cascade(label="Cherrypick", menu=self.cherry_menu)
 
     @staticmethod
     def print_test():
@@ -72,7 +72,6 @@ class CVSApp:
     def init(self):
         if cvs.CURRENT_DIR == '.' or not cvs.CURRENT_DIR:
             messagebox.showinfo('Error', 'Directory not selected')
-        print(cvs.CURRENT_DIR)
         try:
             cvs._init()
             self.populate_file_list()
@@ -91,6 +90,7 @@ class CVSApp:
                 messagebox.showinfo('Error', 'No items to commit')
             else:
                 try:
+                    cvs._reset()
                     cvs._add(items, console_info=True)
                 except:
                     pass
@@ -99,13 +99,13 @@ class CVSApp:
 
     def open_directory(self):
         directory = filedialog.askdirectory()
+        print(directory)
         self.init_cvs_directories(directory)
         if directory:
             self.populate_file_list()
             self.init_menu()
 
         branches = cvs._get_branches()
-        print(branches)
         for branch in branches:
             self.branches_menu.add_command(label=branch, command=lambda b=branch: self.checkout(b, console_info=True))
 
