@@ -1,10 +1,14 @@
 import os
 import time
+from typing import List
+
 import click
 import exceptions
 from pathlib import Path
 from enum import Enum
 import utils as ut
+import gui as g
+import tkinter as tk
 
 MAIN_BRANCH = ".cvs/branches/main"
 BRANCHES = ".cvs/branches"
@@ -96,6 +100,13 @@ def cherry_pick(commit_id):
     _cherry_pick(commit_id, console_info=True)
 
 
+@cli.command()
+def gui():
+    root = tk.Tk()
+    app = g.CVSApp(root)
+    app.run()
+
+
 # endregion
 
 # region Base
@@ -122,7 +133,7 @@ def _init(console_info=False):
             "START": [".", "_"],
             "FORMATS": [".md"],
             "FILES": ["cvs.py", "cvs_test.py", "utils.py", "setup.py",
-                      "requirements.txt", "exceptions.py"],
+                      "gui.py", "requirements.txt", "exceptions.py"],
             "DIRECTORIES": ["venv"]
         }
         ut.write_json_file(STAGING_AREA, staging_area_obj)
@@ -323,7 +334,7 @@ def _checkout(branch_name, console_info=False):
     ut.clear_directory(CURRENT_DIR, ignores)
     last_commit = _get_last_commit(branch_name)
     ut.copy_files(CURRENT_DIR, [val[0] for _, val in last_commit["files"].items()
-                        if val[2] != FileState.DELETED.name])
+                                if val[2] != FileState.DELETED.name])
 
     if console_info:
         click.echo(f"Switched to branch '{branch_name}'\n")
@@ -569,6 +580,27 @@ def _get_last_commit(current_branch):
 
 def _get_branches() -> list:
     return [i for i in os.listdir(BRANCHES) if i[0] != '.']
+
+
+def _get_commits(branch) -> list[tuple[str, str]] | None:
+    _update_staging_area()
+    log_list = []
+    log_path = Path(BRANCHES_LOG)
+    path = os.path.join(BRANCHES_LOG, f'{branch}.json')
+    branch_log_obj = ut.read_json_file(path)
+    dummy = branch_log_obj['head']
+    if not dummy:
+        return
+    commits = branch_log_obj["commits"]
+    while True:
+        date = time.strptime(commits[dummy]["time"])
+        str_date = f"{date.tm_mon:0>2}.{date.tm_mday:0>2}.{date.tm_year}"
+        log_list.append((dummy, str_date))
+        if commits[dummy]["parent_commit_branch"] != Path(path).stem:
+            break
+        dummy = commits[dummy]["parent_commit_id"]
+    return log_list
+
 
 # endregion
 

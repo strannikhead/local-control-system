@@ -10,10 +10,10 @@ class CVSApp:
         # Window options
         self.root = root
         self.root.title("Control Version System")
-        self.root.geometry("800x600")
+        self.root.geometry("400x400")
         self.root.resizable(False, False)
 
-        self.current_dir = None
+        # self.current_dir = None
         self.items = []
         self.init_menu()
 
@@ -29,11 +29,11 @@ class CVSApp:
         self.scrollbar.config(command=self.canvas.yview)
         # Frame inside the canvas
         self.check_frame = tk.Frame(self.canvas)
-        self.canvas.create_window((1, 0), window=self.check_frame, anchor='nw')
+        self.canvas.create_window((0, 0), window=self.check_frame, anchor='nw')
         # Text field
-        self.text_field = tk.Text(self.root, width=20, height=2, border=5)
+        self.text_field = tk.Text(self.root, width=42, height=2, border=5)
         self.text_field.pack(side=tk.LEFT, fill=tk.X)
-        # Button to show selected files
+        # Commit button
         self.show_button = tk.Button(self.root, text="Commit", command=self.commit)
         self.show_button.pack(pady=10, side=tk.LEFT)
 
@@ -44,55 +44,35 @@ class CVSApp:
         file_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="File", menu=file_menu)
         file_menu.add_command(label="Open Directory", command=self.open_directory)
-        file_menu.add_command(label="Exit", command=root.quit)
-
+        file_menu.add_command(label="Exit", command=self.root.quit)
         # Options
         options_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Options", menu=options_menu)
         options_menu.add_command(label="Initialize", command=self.init)
-
+        # Branches
         self.branches_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Branches", menu=self.branches_menu)
-
-
-    def init_window_content(self):
-        # Frame for file list
-        self.frame = tk.Frame(self.root)
-        self.frame.pack(fill=tk.BOTH, expand=True)
-        # Scrollbar
-        self.scrollbar = tk.Scrollbar(self.frame)
-        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        # Canvas to contain the checklist
-        self.canvas = tk.Canvas(self.frame, yscrollcommand=self.scrollbar.set)
-        self.canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.scrollbar.config(command=self.canvas.yview)
-        # Frame inside the canvas
-        self.check_frame = tk.Frame(self.canvas)
-        self.canvas.create_window((0, 0), window=self.check_frame, anchor='nw')
-        # Button to commit
-        self.show_button = tk.Button(self.root, text="Commit", command=self.commit)
-        self.show_button.pack(pady=10)
-        # Text field
-        self.text_field = tk.Entry(self.root, textvariable=tk.StringVar(), )
-        self.text_field.pack(pady=10)
+        # Cherry Picks
+        self.cherry_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Cherry picks", menu=self.cherry_menu)
 
     @staticmethod
     def print_test():
         messagebox.showinfo('test', 'This is a test message')
 
-    def init_cvs_directories(self):
-        cvs.MAIN_BRANCH = f"{self.current_dir}/.cvs/branches/main"
-        cvs.BRANCHES = f"{self.current_dir}/.cvs/branches"
-        cvs.BRANCHES_LOG = f"{self.current_dir}/.cvs/branches_log"
-        cvs.STAGING_AREA = f"{self.current_dir}/.cvs/staging_area.json"
-        cvs.GITIGNORE = f"{self.current_dir}/.cvs/cvsignore.json"
-        cvs.CURRENT_DIR = f"{self.current_dir}"
+    @staticmethod
+    def init_cvs_directories(directory):
+        cvs.MAIN_BRANCH = f"{directory}/.cvs/branches/main"
+        cvs.BRANCHES = f"{directory}/.cvs/branches"
+        cvs.BRANCHES_LOG = f"{directory}/.cvs/branches_log"
+        cvs.STAGING_AREA = f"{directory}/.cvs/staging_area.json"
+        cvs.GITIGNORE = f"{directory}/.cvs/cvsignore.json"
+        cvs.CURRENT_DIR = f"{directory}"
 
     def init(self):
-        if self.current_dir is None:
+        if cvs.CURRENT_DIR == '.' or not cvs.CURRENT_DIR:
             messagebox.showinfo('Error', 'Directory not selected')
-        self.init_cvs_directories()
-        print(self.current_dir)
+        print(cvs.CURRENT_DIR)
         try:
             cvs._init()
             self.populate_file_list()
@@ -110,16 +90,16 @@ class CVSApp:
             if not items:
                 messagebox.showinfo('Error', 'No items to commit')
             else:
-                cvs._reset()
-                cvs._add(items, console_info=True)
+                try:
+                    cvs._add(items, console_info=True)
+                except:
+                    pass
                 cvs._commit(self.text_field.get("1.0", "end"), console_info=True)
                 messagebox.showinfo('Success', 'Commit successful')
 
     def open_directory(self):
         directory = filedialog.askdirectory()
-        self.current_dir = directory
-        cvs.CURRENT_DIR = directory
-        self.init_cvs_directories()
+        self.init_cvs_directories(directory)
         if directory:
             self.populate_file_list()
             self.init_menu()
@@ -127,7 +107,29 @@ class CVSApp:
         branches = cvs._get_branches()
         print(branches)
         for branch in branches:
-            self.branches_menu.add_cascade(label=branch)
+            self.branches_menu.add_command(label=branch, command=lambda b=branch: self.checkout(b, console_info=True))
+
+        try:
+            cvs._check_repository_existence()
+            staging_area = cvs._update_staging_area()
+            current_branch = staging_area["current_branch"]
+            self.init_cherry_pick(current_branch)
+        except:
+            pass
+
+    def checkout(self, branch, console_info=False):
+        cvs._checkout(branch, console_info)
+        self.populate_file_list()
+        self.init_cherry_pick(branch)
+
+    def init_cherry_pick(self, branch):
+        commits = cvs._get_commits(branch)
+        for commit in commits:
+            self.cherry_menu.add_command(label=' - '.join(commit), command=lambda c=commit[0]: self.cherry_pick(c))
+
+    def cherry_pick(self, commit_id):
+        cvs._cherry_pick(commit_id, console_info=True)
+        self.populate_file_list()
 
     def populate_file_list(self):
         # Clear the previous list
@@ -137,7 +139,7 @@ class CVSApp:
         self.items.clear()
 
         # Add files to the checklist
-        for filename in os.listdir(self.current_dir):
+        for filename in os.listdir(cvs.CURRENT_DIR):
             var = tk.BooleanVar()
             chk = tk.Checkbutton(self.check_frame, text=filename, variable=var)
             chk.pack(anchor='w')
@@ -157,6 +159,9 @@ class CVSApp:
             print(f"Selected Files:\n {', '.join(selected_files)}")
             print()
             print(self.text_field.get('1.0', 'end'))
+
+    def run(self):
+        self.root.mainloop()
 
 
 if __name__ == "__main__":
