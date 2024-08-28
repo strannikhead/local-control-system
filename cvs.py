@@ -1,6 +1,5 @@
 import os
 import time
-from typing import List
 
 import click
 import exceptions
@@ -102,6 +101,7 @@ def cherry_pick(commit_id):
 
 @cli.command()
 def gui():
+    """Open GUI window"""
     root = tk.Tk()
     app = g.CVSApp(root)
     app.run()
